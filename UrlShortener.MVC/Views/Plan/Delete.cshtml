@@ -1,0 +1,142 @@
+@model UrlShortener.BusinessLogic.DTOs.PlanDto
+
+@{
+    ViewData["Title"] = "Delete plan";
+}
+
+<div class="min-h-screen bg-gradient-to-b from-slate-50 to-white">
+    <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-10">
+        <div class="flex flex-col gap-6">
+
+            <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                <div class="min-w-0">
+                    <div class="flex items-center gap-3">
+                        <a asp-controller="Plan" asp-action="Details" asp-route-id="@Model.Id"
+                           class="inline-flex items-center gap-2 rounded-2xl bg-white px-3 py-2 text-sm font-semibold text-slate-700 ring-1 ring-inset ring-slate-200 hover:bg-slate-50">
+                            <span class="text-base leading-none">←</span>
+                            Back
+                        </a>
+
+                        <span class="text-sm text-slate-400">/</span>
+                        <span class="text-sm font-semibold text-slate-600">Delete</span>
+                    </div>
+
+                    <div class="mt-5 flex items-center gap-4">
+                        <div class="h-12 w-12 rounded-2xl bg-gradient-to-br from-rose-600 to-rose-500 text-white flex items-center justify-center shadow-sm">
+                            <span class="text-lg font-semibold">!</span>
+                        </div>
+
+                        <div class="min-w-0">
+                            <h1 class="truncate text-3xl font-semibold tracking-tight text-slate-900">Delete plan</h1>
+                            <p class="mt-1 text-sm text-slate-500">
+                                You are about to delete <span class="font-semibold text-slate-900">@Model.Name</span>. This action cannot be undone.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex items-center gap-2">
+                    <a asp-controller="Plan" asp-action="Details" asp-route-id="@Model.Id"
+                       class="inline-flex items-center justify-center rounded-2xl bg-white px-4 py-2.5 text-sm font-semibold text-slate-900 ring-1 ring-inset ring-slate-200 hover:bg-slate-50">
+                        Cancel
+                    </a>
+
+                    <button type="submit" form="deleteForm"
+                            class="inline-flex items-center justify-center rounded-2xl bg-rose-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm shadow-rose-600/10 hover:bg-rose-700 focus:outline-none focus:ring-2 focus:ring-rose-500 focus:ring-offset-2">
+                        Yes, delete
+                    </button>
+                </div>
+            </div>
+
+            <div class="rounded-3xl border border-rose-200 bg-white shadow-sm">
+                <div class="flex flex-col gap-2 border-b border-rose-200 px-6 py-5">
+                    <h2 class="text-base font-semibold text-slate-900">Confirm deletion</h2>
+                    <p class="text-sm text-slate-600">
+                        Review plan details before deleting.
+                    </p>
+                </div>
+
+                <div class="px-6 py-6">
+                    <div class="grid gap-6 lg:grid-cols-3">
+                        <div class="lg:col-span-2 rounded-3xl bg-rose-50 p-5 ring-1 ring-inset ring-rose-200">
+                            <div class="flex items-start justify-between gap-4">
+                                <div class="min-w-0">
+                                    <div class="text-xs font-semibold uppercase tracking-wider text-rose-700/80">Plan</div>
+                                    <div class="mt-2 text-2xl font-semibold text-slate-900 truncate">@Model.Name</div>
+                                    <div class="mt-2 text-sm text-rose-900/80">
+                                        ID: <span class="font-mono">@Model.Id</span>
+                                    </div>
+                                </div>
+
+                                <div class="shrink-0 rounded-2xl bg-white px-3 py-2 ring-1 ring-inset ring-rose-200">
+                                    <div class="text-xs font-semibold uppercase tracking-wider text-rose-700/70">Monthly</div>
+                                    <div class="mt-1 text-sm font-semibold text-slate-900">@Model.PriceMonthly.ToString("0.##")</div>
+                                </div>
+                            </div>
+
+                            <div class="mt-5 grid gap-3 sm:grid-cols-2">
+                                <div class="rounded-2xl bg-white p-4 ring-1 ring-inset ring-rose-200">
+                                    <div class="text-xs font-semibold uppercase tracking-wider text-rose-700/70">Limit</div>
+                                    <div class="mt-1 text-sm font-semibold text-slate-900">@Model.MaxLinksPerMonth</div>
+                                    <div class="mt-1 text-xs text-slate-500">links / month</div>
+                                </div>
+
+                                <div class="rounded-2xl bg-white p-4 ring-1 ring-inset ring-rose-200">
+                                    <div class="text-xs font-semibold uppercase tracking-wider text-rose-700/70">Features</div>
+                                    <div class="mt-2 flex flex-wrap gap-2">
+                                        <span class="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ring-inset
+                                            @(Model.CustomAliasEnabled ? "bg-emerald-50 text-emerald-700 ring-emerald-200" : "bg-slate-50 text-slate-600 ring-slate-200")">
+                                            @(Model.CustomAliasEnabled ? "Custom alias" : "No alias")
+                                        </span>
+                                        <span class="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ring-inset
+                                            @(Model.QrEnabled ? "bg-emerald-50 text-emerald-700 ring-emerald-200" : "bg-slate-50 text-slate-600 ring-slate-200")">
+                                            @(Model.QrEnabled ? "QR enabled" : "No QR")
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="mt-5 rounded-2xl bg-white p-4 ring-1 ring-inset ring-rose-200">
+                                <div class="flex items-start gap-3">
+                                    <div class="mt-0.5 h-9 w-9 rounded-xl bg-rose-100 flex items-center justify-center text-rose-700 font-semibold">!</div>
+                                    <div>
+                                        <div class="text-sm font-semibold text-slate-900">Warning</div>
+                                        <div class="mt-1 text-sm text-slate-600">
+                                            Deleting this plan may affect existing subscriptions. If the plan has active subscriptions, deletion should be blocked by business rules.
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+                            <h3 class="text-sm font-semibold text-slate-900">Delete action</h3>
+                            <p class="mt-1 text-sm text-slate-500">Confirm by pressing the button below.</p>
+
+                            <form id="deleteForm" asp-controller="Plan" asp-action="DeleteConfirmed" method="post" class="mt-5 space-y-3">
+                                @Html.AntiForgeryToken()
+                                <input type="hidden" name="id" value="@Model.Id" />
+
+                                <button type="submit"
+                                        class="inline-flex w-full items-center justify-center rounded-2xl bg-rose-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm shadow-rose-600/10 hover:bg-rose-700 focus:outline-none focus:ring-2 focus:ring-rose-500 focus:ring-offset-2">
+                                    Yes, delete plan
+                                </button>
+
+                                <a asp-controller="Plan" asp-action="Details" asp-route-id="@Model.Id"
+                                   class="inline-flex w-full items-center justify-center rounded-2xl bg-white px-4 py-2.5 text-sm font-semibold text-slate-900 ring-1 ring-inset ring-slate-200 hover:bg-slate-50">
+                                    Cancel
+                                </a>
+
+                                <a asp-controller="Plan" asp-action="Index"
+                                   class="inline-flex w-full items-center justify-center rounded-2xl bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 ring-1 ring-inset ring-slate-200 hover:bg-slate-50">
+                                    Back to list
+                                </a>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>

@@ -1,0 +1,230 @@
+@model List<UrlShortener.BusinessLogic.DTOs.PlanDto>
+
+@{
+    ViewData["Title"] = "Plans";
+}
+
+<div class="min-h-screen bg-gradient-to-b from-slate-50 to-white">
+    <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-10">
+        <div class="flex flex-col gap-6">
+            <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                    <h1 class="text-3xl font-semibold tracking-tight text-slate-900">Plans</h1>
+                    <p class="mt-1 text-sm text-slate-500">Manage pricing tiers, limits, and features.</p>
+                </div>
+
+                <div class="flex items-center gap-3">
+                    <a asp-controller="Plan" asp-action="Create"
+                       class="inline-flex items-center gap-2 rounded-2xl bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white shadow-sm shadow-slate-900/10 hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-900 focus:ring-offset-2">
+                        <span class="text-base leading-none">+</span>
+                        <span>New plan</span>
+                    </a>
+                </div>
+            </div>
+
+            @if (TempData["Success"] is not null)
+            {
+                <div class="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+                    <div class="flex items-start justify-between gap-3">
+                        <div class="font-medium">Success</div>
+                        <div class="text-emerald-800/90">@TempData["Success"]</div>
+                    </div>
+                </div>
+            }
+
+            @if (TempData["Error"] is not null)
+            {
+                <div class="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">
+                    <div class="flex items-start justify-between gap-3">
+                        <div class="font-medium">Error</div>
+                        <div class="text-rose-800/90">@TempData["Error"]</div>
+                    </div>
+                </div>
+            }
+
+            <div class="rounded-3xl border border-slate-200 bg-white shadow-sm">
+                <div
+                    class="flex flex-col gap-3 border-b border-slate-200 px-6 py-5 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                        <h2 class="text-base font-semibold text-slate-900">All plans</h2>
+                        <p class="mt-1 text-sm text-slate-500">Quick overview and actions.</p>
+                    </div>
+
+                    <div class="flex items-center gap-2">
+                        <div class="relative">
+                            <input id="planSearch" type="text" placeholder="Search plan..."
+                                   class="w-full sm:w-72 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 shadow-inner outline-none focus:bg-white focus:ring-2 focus:ring-slate-900" />
+                            <div class="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-slate-400">
+                                ⌕
+                            </div>
+                        </div>
+
+                        <button type="button" id="clearSearch"
+                                class="hidden rounded-2xl bg-white px-3 py-2 text-sm font-semibold text-slate-700 ring-1 ring-inset ring-slate-200 hover:bg-slate-50">
+                            Clear
+                        </button>
+                    </div>
+                </div>
+
+                <div class="overflow-x-auto">
+                    <table class="min-w-full text-left">
+                        <thead class="bg-slate-50">
+                        <tr class="text-xs font-semibold uppercase tracking-wider text-slate-500">
+                            <th class="px-6 py-4">Plan</th>
+                            <th class="px-6 py-4">Price</th>
+                            <th class="px-6 py-4">Limit</th>
+                            <th class="px-6 py-4">Features</th>
+                            <th class="px-6 py-4 text-right">Actions</th>
+                        </tr>
+                        </thead>
+
+                        <tbody class="divide-y divide-slate-100 bg-white">
+                        @if (Model is null || Model.Count == 0)
+                        {
+                            <tr>
+                                <td colspan="5" class="px-6 py-14">
+                                    <div class="flex flex-col items-center justify-center text-center">
+                                        <div
+                                            class="h-14 w-14 rounded-2xl bg-slate-100 flex items-center justify-center text-slate-700 font-semibold">
+                                            P
+                                        </div>
+                                        <h3 class="mt-4 text-base font-semibold text-slate-900">No plans found</h3>
+                                        <p class="mt-1 text-sm text-slate-500 max-w-md">
+                                            Create a plan to start managing subscriptions and feature access.
+                                        </p>
+                                        <a asp-controller="Plan" asp-action="Create"
+                                           class="mt-5 inline-flex items-center gap-2 rounded-2xl bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-slate-800">
+                                            + New plan
+                                        </a>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                        else
+                        {
+                            foreach (var p in Model)
+                            {
+                                <tr class="plan-row hover:bg-slate-50/70 transition-colors"
+                                    data-name="@p.Name.ToLowerInvariant()">
+                                    <td class="px-6 py-4">
+                                        <div class="flex items-center gap-3">
+                                            <div
+                                                class="h-10 w-10 rounded-2xl bg-gradient-to-br from-slate-900 to-slate-700 text-white flex items-center justify-center shadow-sm">
+                                                <span
+                                                    class="text-sm font-semibold">@((p.Name?.Length ?? 0) > 0 ? p.Name.Substring(0, 1).ToUpperInvariant() : "P")</span>
+                                            </div>
+                                            <div class="min-w-0">
+                                                <div class="truncate text-sm font-semibold text-slate-900">@p.Name</div>
+                                                <div
+                                                    class="mt-0.5 text-xs text-slate-500 font-mono truncate">@p.Id</div>
+                                            </div>
+                                        </div>
+                                    </td>
+
+                                    <td class="px-6 py-4">
+                                        <div
+                                            class="text-sm font-semibold text-slate-900">@p.PriceMonthly.ToString("0.##")</div>
+                                        <div class="mt-0.5 text-xs text-slate-500">per month</div>
+                                    </td>
+
+                                    <td class="px-6 py-4">
+                                        <div
+                                            class="inline-flex items-center gap-2 rounded-2xl bg-slate-50 px-3 py-2 ring-1 ring-inset ring-slate-200">
+                                            <span
+                                                class="text-sm font-semibold text-slate-900">@p.MaxLinksPerMonth</span>
+                                            <span class="text-xs text-slate-500">links</span>
+                                        </div>
+                                    </td>
+
+                                    <td class="px-6 py-4">
+                                        <div class="flex flex-wrap items-center gap-2">
+                                                <span class="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ring-inset
+                                                    @(p.CustomAliasEnabled ? "bg-emerald-50 text-emerald-700 ring-emerald-200" : "bg-slate-50 text-slate-600 ring-slate-200")">
+                                                    @(p.CustomAliasEnabled ? "Custom alias" : "No alias")
+                                                </span>
+
+                                            <span class="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ring-inset
+                                                    @(p.QrEnabled ? "bg-emerald-50 text-emerald-700 ring-emerald-200" : "bg-slate-50 text-slate-600 ring-slate-200")">
+                                                    @(p.QrEnabled ? "QR enabled" : "No QR")
+                                                </span>
+                                        </div>
+                                    </td>
+
+                                    <td class="px-6 py-4">
+                                        <div class="flex items-center justify-end gap-2">
+                                            <a asp-controller="Plan" asp-action="Details" asp-route-id="@p.Id"
+                                               class="rounded-2xl bg-white px-3 py-2 text-sm font-semibold text-slate-900 ring-1 ring-inset ring-slate-200 hover:bg-slate-50">
+                                                Details
+                                            </a>
+
+                                            <a asp-controller="Plan" asp-action="Edit" asp-route-id="@p.Id"
+                                               class="rounded-2xl bg-slate-900 px-3 py-2 text-sm font-semibold text-white shadow-sm shadow-slate-900/10 hover:bg-slate-800">
+                                                Edit
+                                            </a>
+
+                                            <a asp-controller="Plan" asp-action="Delete" asp-route-id="@p.Id"
+                                               class="rounded-2xl bg-white px-3 py-2 text-sm font-semibold text-rose-700 ring-1 ring-inset ring-rose-200 hover:bg-rose-50">
+                                                Delete
+                                            </a>
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+                        }
+                        </tbody>
+                    </table>
+                </div>
+
+                @if (Model is not null && Model.Count > 0)
+                {
+                    <div class="flex items-center justify-between border-t border-slate-200 px-6 py-4">
+                        <div class="text-sm text-slate-500">
+                            Showing <span id="shownCount" class="font-semibold text-slate-700">@Model.Count</span>
+                            of <span class="font-semibold text-slate-700">@Model.Count</span> plans
+                        </div>
+                        <div class="text-xs text-slate-400">
+                            Tip: use search to filter instantly
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        (function () {
+            const input = document.getElementById('planSearch');
+            const clearBtn = document.getElementById('clearSearch');
+            const rows = Array.from(document.querySelectorAll('.plan-row'));
+            const shownCount = document.getElementById('shownCount');
+
+            if (!input || rows.length === 0) return;
+
+            function apply() {
+                const q = (input.value || '').trim().toLowerCase();
+                let shown = 0;
+
+                rows.forEach(r => {
+                    const name = r.getAttribute('data-name') || '';
+                    const ok = q.length === 0 || name.includes(q);
+                    r.classList.toggle('hidden', !ok);
+                    if (ok) shown++;
+                });
+
+                if (shownCount) shownCount.textContent = String(shown);
+                clearBtn.classList.toggle('hidden', q.length === 0);
+            }
+
+            input.addEventListener('input', apply);
+            clearBtn.addEventListener('click', function () {
+                input.value = '';
+                apply();
+                input.focus();
+            });
+
+            apply();
+        })();
+    </script>
+}

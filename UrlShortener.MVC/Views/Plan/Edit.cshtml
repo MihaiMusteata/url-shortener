@@ -1,0 +1,60 @@
+@model UrlShortener.BusinessLogic.DTOs.PlanDto
+
+@{
+    ViewData["Title"] = "Edit plan";
+}
+
+<div class="min-h-screen bg-gradient-to-b from-slate-50 to-white">
+    <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-10">
+        <div class="flex flex-col gap-6">
+
+            <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                <div class="min-w-0">
+                    <div class="flex items-center gap-3">
+                        <a asp-controller="Plan" asp-action="Index"
+                           class="inline-flex items-center gap-2 rounded-2xl bg-white px-3 py-2 text-sm font-semibold text-slate-700 ring-1 ring-inset ring-slate-200 hover:bg-slate-50">
+                            <span class="text-base leading-none">←</span>
+                            Back
+                        </a>
+
+                        <span class="text-sm text-slate-400">/</span>
+                        <span class="text-sm font-semibold text-slate-600">Edit</span>
+                    </div>
+
+                    <h1 class="mt-5 text-3xl font-semibold tracking-tight text-slate-900">Edit plan</h1>
+                    <p class="mt-1 text-sm text-slate-500">
+                        Update details for <span class="font-semibold text-slate-900">@Model.Name</span>.
+                    </p>
+                </div>
+
+                <div class="flex items-center gap-2">
+                    <a asp-controller="Plan" asp-action="Details" asp-route-id="@Model.Id"
+                       class="inline-flex items-center justify-center rounded-2xl bg-white px-4 py-2.5 text-sm font-semibold text-slate-900 ring-1 ring-inset ring-slate-200 hover:bg-slate-50">
+                        Cancel
+                    </a>
+
+                    <button type="submit" form="planForm"
+                            class="inline-flex items-center justify-center rounded-2xl bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white shadow-sm shadow-slate-900/10 hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-900 focus:ring-offset-2">
+                        Save changes
+                    </button>
+                </div>
+            </div>
+
+            <div class="rounded-3xl border border-slate-200 bg-white shadow-sm">
+                <div class="flex flex-col gap-2 border-b border-slate-200 px-6 py-5">
+                    <h2 class="text-base font-semibold text-slate-900">Plan information</h2>
+                    <p class="text-sm text-slate-500">Edit the details below.</p>
+                </div>
+
+                <div class="px-6 py-6">
+                    <form id="planForm" asp-controller="Plan" asp-action="Edit" method="post" class="space-y-6">
+                        @Html.AntiForgeryToken()
+                        <input type="hidden" name="Id" value="@Model.Id" />
+                        @await Html.PartialAsync("_PlanForm", Model)
+                    </form>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
