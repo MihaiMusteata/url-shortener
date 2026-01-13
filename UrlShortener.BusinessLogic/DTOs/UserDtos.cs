@@ -1,3 +1,5 @@
+using UrlShortener.DataAccess.Entities;
+
 namespace UrlShortener.BusinessLogic.DTOs;
 
 public class UserMinimalDto
@@ -7,4 +9,5 @@ public class UserMinimalDto
     public string LastName { get; set; } = "";
     public string Username { get; set; } = "";
     public string Email { get; set; } = "";
+    public UserRole Role { get; set; } = UserRole.user;
 }

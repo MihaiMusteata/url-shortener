@@ -5,6 +5,8 @@ import LoginPage from "./pages/LoginPage";
 import SignUpPage from "./pages/SignUpPage";
 import ProfilePage from "./pages/ProfilePage";
 import LinkDetailsPage from "./pages/LinkDetailsPage";
+import { useAuth } from "./auth/AuthContext";
+import { RequireAuth } from "./auth/RequireAuth";
 
 function clsx(...parts: Array<string | boolean | undefined | null>) {
     return parts.filter(Boolean).join(" ");
@@ -12,11 +14,12 @@ function clsx(...parts: Array<string | boolean | undefined | null>) {
 
 function Header() {
     const { pathname } = useLocation();
+    const { isAuthenticated, user, logout, isLoading } = useAuth();
 
     const nav = [
         { to: "/", label: "Shorten" },
         { to: "/pricing", label: "Pricing" },
-        { to: "/profile", label: "Profile" },
+        ...(isAuthenticated ? [{ to: "/profile", label: "Profile" }] : []),
     ];
 
     return (
@@ -52,27 +55,48 @@ function Header() {
                     </nav>
 
                     <div className="flex items-center gap-2">
-                        <Link
-                            to="/login"
-                            className={clsx(
-                                "rounded-2xl px-4 py-2 text-sm font-semibold ring-1 transition",
-                                pathname === "/login"
-                                    ? "bg-white text-[#070A12] ring-white/20"
-                                    : "bg-white/5 text-white/85 ring-white/10 hover:bg-white/10"
-                            )}
-                        >
-                            Sign in
-                        </Link>
+                        {isLoading ? null : isAuthenticated ? (
+                            <>
+                                <div className="hidden sm:flex items-center gap-2 rounded-2xl bg-white/5 px-3 py-2 ring-1 ring-white/10">
+                                    <span className="text-xs text-white/60">Signed in</span>
+                                    <span className="text-sm font-semibold text-white/85">{user?.username}</span>
+                                </div>
 
-                        <Link
-                            to="/signup"
-                            className={clsx(
-                                "hidden sm:inline-flex rounded-2xl px-4 py-2 text-sm font-semibold transition",
-                                pathname === "/signup" ? "bg-white/90 text-[#070A12]" : "bg-white text-[#070A12] hover:bg-white/90"
-                            )}
-                        >
-                            Sign up
-                        </Link>
+                                <button
+                                    type="button"
+                                    onClick={logout}
+                                    className="rounded-2xl px-4 py-2 text-sm font-semibold ring-1 transition bg-white/5 text-white/85 ring-white/10 hover:bg-white/10"
+                                >
+                                    Logout
+                                </button>
+                            </>
+                        ) : (
+                            <>
+                                <Link
+                                    to="/login"
+                                    className={clsx(
+                                        "rounded-2xl px-4 py-2 text-sm font-semibold ring-1 transition",
+                                        pathname === "/login"
+                                            ? "bg-white text-[#070A12] ring-white/20"
+                                            : "bg-white/5 text-white/85 ring-white/10 hover:bg-white/10"
+                                    )}
+                                >
+                                    Sign in
+                                </Link>
+
+                                <Link
+                                    to="/signup"
+                                    className={clsx(
+                                        "hidden sm:inline-flex rounded-2xl px-4 py-2 text-sm font-semibold transition",
+                                        pathname === "/signup"
+                                            ? "bg-white/90 text-[#070A12]"
+                                            : "bg-white text-[#070A12] hover:bg-white/90"
+                                    )}
+                                >
+                                    Sign up
+                                </Link>
+                            </>
+                        )}
                     </div>
                 </div>
 
@@ -127,7 +151,6 @@ function Footer() {
 function AppLayout({ children }: { children: React.ReactNode }) {
     return (
         <div className="min-h-screen w-full bg-[#070A12] text-white">
-            {/* background glow */}
             <div className="pointer-events-none fixed inset-0 overflow-hidden">
                 <div className="absolute left-1/2 top-[-240px] h-[520px] w-[720px] -translate-x-1/2 rounded-full bg-gradient-to-r from-indigo-500/20 via-fuchsia-500/20 to-cyan-400/20 blur-3xl sm:h-[620px] sm:w-[920px] 2xl:h-[720px] 2xl:w-[1100px]" />
                 <div className="absolute bottom-[-240px] right-[-240px] h-[420px] w-[420px] rounded-full bg-gradient-to-r from-cyan-400/10 to-indigo-500/10 blur-3xl sm:h-[520px] sm:w-[520px]" />
@@ -137,7 +160,6 @@ function AppLayout({ children }: { children: React.ReactNode }) {
             <Header />
 
             <main className="relative">
-                {/* keeps content width consistent with pages */}
                 <div className="mx-auto w-full max-w-5xl px-4 py-10 sm:px-6 sm:py-14 lg:max-w-6xl lg:px-8 2xl:max-w-7xl 2xl:px-10">
                     {children}
                 </div>
@@ -148,8 +170,9 @@ function AppLayout({ children }: { children: React.ReactNode }) {
     );
 }
 
-/** Optional: auth pages layout (no nav menu, simpler) */
 function AuthLayout({ children }: { children: React.ReactNode }) {
+    const { pathname } = useLocation();
+
     return (
         <div className="min-h-screen w-full bg-[#070A12] text-white">
             <div className="pointer-events-none fixed inset-0 overflow-hidden">
@@ -158,7 +181,6 @@ function AuthLayout({ children }: { children: React.ReactNode }) {
                 <div className="absolute top-[35%] left-[-220px] h-[360px] w-[360px] rounded-full bg-gradient-to-r from-fuchsia-500/10 to-indigo-500/10 blur-3xl" />
             </div>
 
-            {/* minimal header */}
             <header className="relative border-b border-white/10 bg-[#070A12]/70 backdrop-blur">
                 <div className="mx-auto w-full max-w-5xl px-4 py-4 sm:px-6 lg:max-w-6xl lg:px-8 2xl:max-w-7xl 2xl:px-10">
                     <div className="flex items-center justify-between">
@@ -172,14 +194,25 @@ function AuthLayout({ children }: { children: React.ReactNode }) {
                             </div>
                         </Link>
 
-                        <Link to="/pricing" className="rounded-2xl px-4 py-2 text-sm font-semibold text-white/85 ring-1 ring-white/10 hover:bg-white/10">
-                            Pricing
-                        </Link>
+                        <div className="flex items-center gap-2">
+                            <Link
+                                to="/pricing"
+                                className="rounded-2xl px-4 py-2 text-sm font-semibold text-white/85 ring-1 ring-white/10 hover:bg-white/10"
+                            >
+                                Pricing
+                            </Link>
+                            <Link
+                                to={pathname === "/login" ? "/signup" : "/login"}
+                                className="rounded-2xl px-4 py-2 text-sm font-semibold text-white/85 ring-1 ring-white/10 hover:bg-white/10"
+                            >
+                                {pathname === "/login" ? "Sign up" : "Sign in"}
+                            </Link>
+                        </div>
                     </div>
                 </div>
             </header>
 
-            <main className="relative">
+            <main className="relative" style={{height: 'calc(100vh - 72px - 94px)'}}>
                 <div className="mx-auto w-full max-w-5xl px-4 py-10 sm:px-6 sm:py-14 lg:max-w-6xl lg:px-8 2xl:max-w-7xl 2xl:px-10">
                     {children}
                 </div>
@@ -191,9 +224,21 @@ function AuthLayout({ children }: { children: React.ReactNode }) {
 }
 
 export default function App() {
+    const { isAuthenticated, isLoading } = useAuth();
+
+    if (isLoading) {
+        return (
+            <div className="min-h-screen w-full bg-[#070A12] text-white grid place-items-center">
+                <div className="rounded-3xl bg-white/5 p-6 ring-1 ring-white/10">
+                    <div className="text-sm font-semibold">Loading…</div>
+                    <div className="mt-1 text-sm text-white/60">Restoring session</div>
+                </div>
+            </div>
+        );
+    }
+
     return (
         <Routes>
-            {/* App pages with full header menu */}
             <Route
                 path="/"
                 element={
@@ -202,6 +247,7 @@ export default function App() {
                     </AppLayout>
                 }
             />
+
             <Route
                 path="/pricing"
                 element={
@@ -210,38 +256,52 @@ export default function App() {
                     </AppLayout>
                 }
             />
+
+            {/* Protected */}
             <Route
                 path="/profile"
                 element={
-                    <AppLayout>
-                        <ProfilePage />
-                    </AppLayout>
+                    <RequireAuth>
+                        <AppLayout>
+                            <ProfilePage />
+                        </AppLayout>
+                    </RequireAuth>
                 }
             />
             <Route
-                path="/details"
+                path="/details/:id"
                 element={
-                    <AppLayout>
-                        <LinkDetailsPage />
-                    </AppLayout>
+                    <RequireAuth>
+                        <AppLayout>
+                            <LinkDetailsPage />
+                        </AppLayout>
+                    </RequireAuth>
                 }
             />
 
-            {/* Auth pages with simplified layout */}
+            {/* Auth pages (redirect if already logged in) */}
             <Route
                 path="/login"
                 element={
-                    <AuthLayout>
-                        <LoginPage />
-                    </AuthLayout>
+                    isAuthenticated ? (
+                        <Navigate to="/profile" replace />
+                    ) : (
+                        <AuthLayout>
+                            <LoginPage />
+                        </AuthLayout>
+                    )
                 }
             />
             <Route
                 path="/signup"
                 element={
-                    <AuthLayout>
-                        <SignUpPage />
-                    </AuthLayout>
+                    isAuthenticated ? (
+                        <Navigate to="/profile" replace />
+                    ) : (
+                        <AuthLayout>
+                            <SignUpPage />
+                        </AuthLayout>
+                    )
                 }
             />
 

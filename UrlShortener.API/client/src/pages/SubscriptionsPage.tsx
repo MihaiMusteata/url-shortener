@@ -84,7 +84,7 @@ function cx(...classes: Array<string | false | null | undefined>) {
 }
 
 function initials(name: string) {
-    const parts = name.trim().split(/\s+/).filter(Boolean);
+    const parts = name.split(/\s+/).filter(Boolean);
     if (parts.length === 0) return "U";
     const a = parts[0]?.[0] ?? "U";
     const b = parts.length > 1 ? parts[parts.length - 1]?.[0] ?? "" : "";
@@ -94,7 +94,7 @@ function initials(name: string) {
 function formatUserLine(s: SubscriptionDto) {
     const u = s.user;
     if (!u) return { fullName: "Unknown user", meta: "" };
-    const fullName = `${u.firstName} ${u.lastName}`.trim() || "Unknown user";
+    const fullName = `${u.firstName} ${u.lastName}` || "Unknown user";
     const meta = `@${u.username} · ${u.email}`;
     return { fullName, meta };
 }

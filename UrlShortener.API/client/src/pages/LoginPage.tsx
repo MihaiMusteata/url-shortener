@@ -1,4 +1,6 @@
 import React, { useState } from "react";
+import { Link, useNavigate, useLocation } from "react-router-dom";
+import { useAuth } from "../auth/AuthContext";
 
 function clsx(...parts: Array<string | boolean | undefined | null>) {
     return parts.filter(Boolean).join(" ");
@@ -9,12 +11,21 @@ function isValidEmail(email: string) {
 }
 
 export default function LoginPage() {
+    const nav = useNavigate();
+    const location = useLocation();
+    const { login, error: authError, isLoading, isAuthenticated } = useAuth();
+
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [remember, setRemember] = useState(true);
 
     const [busy, setBusy] = useState(false);
     const [error, setError] = useState<string | null>(null);
+
+    const redirectTo =
+        (location.state as any)?.from?.pathname ||
+        (location.state as any)?.from ||
+        "/profile";
 
     async function onSubmit(e: React.FormEvent) {
         e.preventDefault();
@@ -24,24 +35,27 @@ export default function LoginPage() {
             setError("Please enter a valid email address.");
             return;
         }
-        if (password.trim().length < 6) {
+        if (password.length < 6) {
             setError("Password must be at least 6 characters.");
             return;
         }
 
         setBusy(true);
         try {
-            await new Promise((r) => setTimeout(r, 450)); // mock
-            alert(`Logged in as ${email} (remember: ${remember ? "yes" : "no"})`);
-        } catch {
-            setError("Login failed. Please try again.");
+            const ok = await login({ email, password });
+            if (ok) nav(redirectTo, { replace: true });
         } finally {
             setBusy(false);
         }
     }
 
+    // dacă deja e logat
+    if (!isLoading && isAuthenticated) {
+        nav("/profile", { replace: true });
+    }
+
     return (
-        <div className="min-h-screen w-full bg-[#070A12] text-white">
+        <>
             {/* background */}
             <div className="pointer-events-none fixed inset-0 overflow-hidden">
                 <div className="absolute left-1/2 top-[-240px] h-[520px] w-[720px] -translate-x-1/2 rounded-full bg-gradient-to-r from-indigo-500/20 via-fuchsia-500/20 to-cyan-400/20 blur-3xl sm:h-[620px] sm:w-[920px] 2xl:h-[720px] 2xl:w-[1100px]" />
@@ -50,34 +64,12 @@ export default function LoginPage() {
             </div>
 
             <div className="relative mx-auto w-full max-w-5xl px-4 py-10 sm:px-6 sm:py-14 lg:max-w-6xl lg:px-8 2xl:max-w-7xl 2xl:px-10">
-                {/* header */}
-                <header className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                        <div className="h-10 w-10 rounded-2xl bg-white/10 ring-1 ring-white/15 backdrop-blur flex items-center justify-center">
-                            <span className="text-sm font-semibold">US</span>
-                        </div>
-                        <div className="leading-tight">
-                            <div className="text-sm font-semibold tracking-wide">UrlShortener</div>
-                            <div className="text-xs text-white/60">Welcome back</div>
-                        </div>
-                    </div>
-
-                    <a
-                        href="/pricing"
-                        className="rounded-2xl px-4 py-2 text-sm font-semibold text-white/85 ring-1 ring-white/10 hover:bg-white/10"
-                    >
-                        Pricing
-                    </a>
-                </header>
-
                 <main className="mt-12 grid gap-8 lg:grid-cols-2 lg:items-center">
                     {/* left */}
                     <section className="max-w-xl">
                         <div className="inline-flex items-center gap-2 rounded-full bg-white/5 px-4 py-2 ring-1 ring-white/10">
                             <span className="h-2 w-2 rounded-full bg-emerald-400" />
-                            <span className="text-xs font-semibold tracking-wide text-white/80">
-                Secure login
-              </span>
+                            <span className="text-xs font-semibold tracking-wide text-white/80">Secure login</span>
                         </div>
 
                         <h1 className="mt-6 text-3xl font-semibold tracking-tight sm:text-5xl">
@@ -148,29 +140,28 @@ export default function LoginPage() {
                                     Remember me
                                 </label>
 
-                                <a
-                                    href="/signup"
-                                    className="text-sm font-semibold text-white/80 hover:text-white"
-                                >
+                                <Link to="/signup" className="text-sm font-semibold text-white/80 hover:text-white">
                                     Create account
-                                </a>
+                                </Link>
                             </div>
 
-                            {error && (
+                            {(error || authError) && (
                                 <div className="rounded-2xl border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-100">
-                                    {error}
+                                    {error ?? authError}
                                 </div>
                             )}
 
                             <button
                                 type="submit"
-                                disabled={busy}
+                                disabled={busy || isLoading}
                                 className={clsx(
-                                    "w-full rounded-2xl px-5 py-3 text-sm font-semibold",
-                                    busy ? "bg-white/60 text-[#070A12]" : "bg-white text-[#070A12] hover:bg-white/90"
+                                    "w-full rounded-2xl px-5 py-3 text-sm font-semibold transition",
+                                    busy || isLoading
+                                        ? "bg-white/60 text-[#070A12] cursor-not-allowed"
+                                        : "bg-white text-[#070A12] hover:bg-white/90"
                                 )}
                             >
-                                {busy ? "Signing in..." : "Sign in"}
+                                {busy || isLoading ? "Signing in..." : "Sign in"}
                             </button>
 
                             <div className="pt-2 text-center text-sm text-white/60">
@@ -184,15 +175,16 @@ export default function LoginPage() {
                                 </a>
                                 .
                             </div>
+
+                            {/* NOTE: remember checkbox
+                  Momentan token-ul e salvat în localStorage de AuthContext.
+                  Dacă vrei să respecți "remember=false", schimbă storage-ul în sessionStorage
+                  sau condiționează setAuthStorage în context. */}
                         </form>
                     </section>
                 </main>
-
-                <footer className="mt-14 border-t border-white/10 pt-8">
-                    <div className="text-sm text-white/60">© 2026 UrlShortener</div>
-                </footer>
             </div>
-        </div>
+        </>
     );
 }
 
