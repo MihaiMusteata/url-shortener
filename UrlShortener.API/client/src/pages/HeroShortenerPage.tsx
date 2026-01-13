@@ -1,13 +1,6 @@
 import { useMemo, useState } from "react";
-
-export type PlanDto = {
-    id: string;
-    name: string;
-    priceMonthly: number;
-    maxLinksPerMonth: number;
-    customAliasEnabled: boolean;
-    qrEnabled: boolean;
-};
+import { useNavigate } from "react-router-dom";
+import { api } from "../lib/api.ts";
 
 export type ShortLinkCreateRequest = {
     url: string;
@@ -15,55 +8,48 @@ export type ShortLinkCreateRequest = {
     enableQr: boolean;
 };
 
-type ShortLinkCreateResponseMock = {
+export type ShortLinkCreateResponse = {
     shortUrl: string;
     alias: string;
     qrUrl?: string;
-};
-
-const mockUserPlan: PlanDto = {
-    id: "b1f2c8a1-4d1c-4c1b-8b77-7d2c4f0e8a22",
-    name: "Pro",
-    priceMonthly: 9.99,
-    maxLinksPerMonth: 5000,
-    customAliasEnabled: true,
-    qrEnabled: true,
 };
 
 function clsx(...parts: Array<string | boolean | undefined | null>) {
     return parts.filter(Boolean).join(" ");
 }
 
-function isValidUrl(value: string) {
-    try {
-        const u = new URL(value.trim());
-        return u.protocol === "http:" || u.protocol === "https:";
-    } catch {
-        return false;
+function hasNonWhitespace(s: string) {
+    for (let i = 0; i < s.length; i++) {
+        if (!/\s/.test(s[i])) return true;
     }
+    return false;
 }
 
-function normalizeUrl(value: string) {
-    const v = value.trim();
-    if (!v) return v;
-    if (/^https?:\/\//i.test(v)) return v;
-    return `https://${v}`;
+function isValidAlias(alias: string) {
+    if (alias.length < 3 || alias.length > 32) return false;
+    for (let i = 0; i < alias.length; i++) {
+        const ch = alias[i];
+        const ok =
+            (ch >= "a" && ch <= "z") ||
+            (ch >= "A" && ch <= "Z") ||
+            (ch >= "0" && ch <= "9") ||
+            ch === "-" ||
+            ch === "_";
+        if (!ok) return false;
+    }
+    return true;
 }
 
-function randomAlias() {
-    const chars = "abcdefghijkmnpqrstuvwxyz23456789";
-    let s = "";
-    for (let i = 0; i < 7; i++) s += chars[Math.floor(Math.random() * chars.length)];
-    return s;
+function looksLikeUrlInput(value: string) {
+    return hasNonWhitespace(value);
 }
 
-/**
- * Hero page for client app (URL shortener + optional QR)
- * - No advanced settings (kept aligned with service capabilities)
- * - Request model matches ShortLinkCreateRequest
- */
+function isUpgradeRequiredMessage(msg: string) {
+    return msg.startsWith("Upgrade required:");
+}
+
 export default function HeroShortenerPage() {
-    const plan = mockUserPlan;
+    const navigate = useNavigate();
 
     const [url, setUrl] = useState("");
     const [customAlias, setCustomAlias] = useState("");
@@ -71,48 +57,58 @@ export default function HeroShortenerPage() {
 
     const [busy, setBusy] = useState(false);
     const [error, setError] = useState<string | null>(null);
-    const [result, setResult] = useState<ShortLinkCreateResponseMock | null>(null);
+    const [result, setResult] = useState<ShortLinkCreateResponse | null>(null);
 
-    const urlNormalized = useMemo(() => normalizeUrl(url), [url]);
-    const canUseAlias = plan.customAliasEnabled;
-    const canUseQr = plan.qrEnabled;
+    const request: ShortLinkCreateRequest = useMemo(() => {
+        const alias = hasNonWhitespace(customAlias) ? customAlias : undefined;
 
-    const request: ShortLinkCreateRequest = useMemo(
-        () => ({
-            url: urlNormalized,
-            customAlias: canUseAlias && customAlias.trim() ? customAlias.trim() : undefined,
-            enableQr: canUseQr ? enableQr : false,
-        }),
-        [urlNormalized, canUseAlias, customAlias, canUseQr, enableQr]
-    );
+        return {
+            url,
+            customAlias: alias,
+            enableQr,
+        };
+    }, [url, customAlias, enableQr]);
 
     async function onGenerate() {
         setError(null);
         setResult(null);
 
-        if (!request.url || !isValidUrl(request.url)) {
-            setError("Please enter a valid URL (http/https).");
+        if (!looksLikeUrlInput(request.url)) {
+            setError("Please enter a URL.");
             return;
         }
 
-        if (request.customAlias && !/^[a-zA-Z0-9-_]{3,32}$/.test(request.customAlias)) {
-            setError("Custom alias must be 3–32 chars (letters, numbers, - or _).");
-            return;
+        if (request.customAlias) {
+            for (let i = 0; i < request.customAlias.length; i++) {
+                if (/\s/.test(request.customAlias[i])) {
+                    setError("Custom alias cannot contain spaces.");
+                    return;
+                }
+            }
+
+            if (!isValidAlias(request.customAlias)) {
+                setError("Custom alias must be 3–32 chars (letters, numbers, - or _).");
+                return;
+            }
         }
 
         setBusy(true);
         try {
-            await new Promise((r) => setTimeout(r, 350)); // mock latency
+            const res = await api.post<ShortLinkCreateResponse>("/shortlinks", request);
+            setResult(res.data);
+        } catch (e: any) {
+            const msg =
+                e?.response?.data ||
+                e?.message ||
+                "Something went wrong. Please try again.";
 
-            const alias = request.customAlias ?? randomAlias();
-            const shortUrl = `https://sho.rt/${alias}`;
-            const qrUrl = request.enableQr
-                ? `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(shortUrl)}`
-                : undefined;
+            if (typeof msg === "string" && isUpgradeRequiredMessage(msg)) {
+                // redirect la pricing + poți păstra contextul (de unde a venit)
+                navigate(`/pricing?from=shorten`, { replace: false });
+                return;
+            }
 
-            setResult({ shortUrl, alias, qrUrl });
-        } catch {
-            setError("Something went wrong. Please try again.");
+            setError(typeof msg === "string" ? msg : "Request failed.");
         } finally {
             setBusy(false);
         }
@@ -130,21 +126,15 @@ export default function HeroShortenerPage() {
         <>
             {/* background */}
             <div className="pointer-events-none fixed inset-0 overflow-hidden">
-                <div
-                    className="absolute left-1/2 top-[-240px] h-[520px] w-[720px] -translate-x-1/2 rounded-full bg-gradient-to-r from-indigo-500/20 via-fuchsia-500/20 to-cyan-400/20 blur-3xl sm:h-[620px] sm:w-[920px] 2xl:h-[720px] 2xl:w-[1100px]" />
-                <div
-                    className="absolute bottom-[-240px] right-[-240px] h-[420px] w-[420px] rounded-full bg-gradient-to-r from-cyan-400/10 to-indigo-500/10 blur-3xl sm:h-[520px] sm:w-[520px]" />
-                <div
-                    className="absolute top-[35%] left-[-220px] h-[360px] w-[360px] rounded-full bg-gradient-to-r from-fuchsia-500/10 to-indigo-500/10 blur-3xl" />
+                <div className="absolute left-1/2 top-[-240px] h-[520px] w-[720px] -translate-x-1/2 rounded-full bg-gradient-to-r from-indigo-500/20 via-fuchsia-500/20 to-cyan-400/20 blur-3xl sm:h-[620px] sm:w-[920px] 2xl:h-[720px] 2xl:w-[1100px]" />
+                <div className="absolute bottom-[-240px] right-[-240px] h-[420px] w-[420px] rounded-full bg-gradient-to-r from-cyan-400/10 to-indigo-500/10 blur-3xl sm:h-[520px] sm:w-[520px]" />
+                <div className="absolute top-[35%] left-[-220px] h-[360px] w-[360px] rounded-full bg-gradient-to-r from-fuchsia-500/10 to-indigo-500/10 blur-3xl" />
             </div>
 
             <div className="relative mx-auto w-full max-w-5xl px-4 sm:px-6 sm:py-14 lg:max-w-6xl lg:px-8 2xl:max-w-7xl 2xl:px-10">
-                {/* header */}
-                {/* hero */}
-                <section >
+                <section>
                     <div className="max-w-2xl">
-                        <div
-                            className="inline-flex items-center gap-2 rounded-full bg-white/5 px-4 py-2 ring-1 ring-white/10">
+                        <div className="inline-flex items-center gap-2 rounded-full bg-white/5 px-4 py-2 ring-1 ring-white/10">
                             <span className="h-2 w-2 rounded-full bg-emerald-400" />
                             <span className="text-xs font-semibold tracking-wide text-white/80">
                 Create short links instantly
@@ -156,7 +146,8 @@ export default function HeroShortenerPage() {
                         </h1>
 
                         <p className="mt-4 text-base text-white/70">
-                            Choose an alias (if your plan allows) and optionally generate a QR code.
+                            Choose an alias and optionally generate a QR code (based on your
+                            plan).
                         </p>
                     </div>
 
@@ -169,8 +160,7 @@ export default function HeroShortenerPage() {
                                     Destination URL
                                 </label>
 
-                                <div
-                                    className="mt-2 flex items-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-3 py-2.5 shadow-inner focus-within:ring-2 focus-within:ring-white/30">
+                                <div className="mt-2 flex items-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-3 py-2.5 shadow-inner focus-within:ring-2 focus-within:ring-white/30">
                                     <span className="text-white/40 text-sm">🔗</span>
                                     <input
                                         value={url}
@@ -182,7 +172,7 @@ export default function HeroShortenerPage() {
                                 </div>
 
                                 <div className="mt-2 text-xs text-white/50">
-                                    Tip: you can paste without https:// — we’ll add it automatically.
+                                    Tip: you can paste without https:// — backend will normalize.
                                 </div>
                             </div>
 
@@ -192,49 +182,39 @@ export default function HeroShortenerPage() {
                                 disabled={busy}
                                 className={clsx(
                                     "mt-6 sm:mt-7 w-full sm:w-auto rounded-2xl px-5 py-3 text-sm font-semibold",
-                                    busy ? "bg-white/60 text-[#070A12]" : "bg-white text-[#070A12] hover:bg-white/90"
+                                    busy
+                                        ? "bg-white/60 text-[#070A12]"
+                                        : "bg-white text-[#070A12] hover:bg-white/90"
                                 )}
                             >
                                 {busy ? "Generating..." : "Generate"}
                             </button>
                         </div>
 
-                        {/* options (service-aligned) */}
+                        {/* options */}
                         <div className="mt-6 grid gap-3 lg:grid-cols-2">
                             <div className="rounded-3xl bg-white/5 p-4 ring-1 ring-white/10">
                                 <div className="flex items-start justify-between gap-4">
                                     <div>
                                         <div className="text-sm font-semibold">Custom alias</div>
                                         <div className="mt-1 text-sm text-white/65">
-                                            {canUseAlias ? "Choose a readable short code" : "Not available on your plan"}
+                                            Optional. If plan disallows it, backend returns upgrade
+                                            message.
                                         </div>
                                     </div>
-                                    <span
-                                        className={clsx(
-                                            "rounded-full px-3 py-1 text-xs font-semibold ring-1",
-                                            canUseAlias
-                                                ? "bg-emerald-400/10 ring-emerald-400/20 text-emerald-300"
-                                                : "bg-white/5 ring-white/10 text-white/70"
-                                        )}
-                                    >
-                    {canUseAlias ? "Available" : "Locked"}
+
+                                    <span className="rounded-full bg-white/5 px-3 py-1 text-xs font-semibold text-white/70 ring-1 ring-white/10">
+                    Server-validated
                   </span>
                                 </div>
 
-                                <div
-                                    className="mt-3 flex items-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-3 py-2.5 shadow-inner focus-within:ring-2 focus-within:ring-white/30">
+                                <div className="mt-3 flex items-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-3 py-2.5 shadow-inner focus-within:ring-2 focus-within:ring-white/30">
                                     <span className="text-white/40 text-sm">sho.rt/</span>
                                     <input
                                         value={customAlias}
                                         onChange={(e) => setCustomAlias(e.target.value)}
-                                        placeholder={canUseAlias ? "my-link" : "Upgrade to unlock"}
-                                        disabled={!canUseAlias}
-                                        className={clsx(
-                                            "w-full bg-transparent text-sm outline-none",
-                                            canUseAlias
-                                                ? "text-white placeholder:text-white/35"
-                                                : "text-white/40 placeholder:text-white/25 cursor-not-allowed"
-                                        )}
+                                        placeholder="my-link"
+                                        className="w-full bg-transparent text-sm text-white placeholder:text-white/35 outline-none"
                                     />
                                 </div>
 
@@ -246,17 +226,16 @@ export default function HeroShortenerPage() {
 
                             <ToggleCard
                                 title="QR code"
-                                subtitle={canUseQr ? "Generate a QR code for this short link" : "Not available on your plan"}
-                                checked={canUseQr ? enableQr : false}
-                                disabled={!canUseQr}
+                                subtitle="If plan disallows QR, backend returns upgrade message."
+                                checked={enableQr}
+                                disabled={false}
                                 onChange={setEnableQr}
                             />
                         </div>
 
                         {/* error */}
                         {error && (
-                            <div
-                                className="mt-6 rounded-2xl border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-100">
+                            <div className="mt-6 rounded-2xl border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-100">
                                 {error}
                             </div>
                         )}
@@ -271,8 +250,7 @@ export default function HeroShortenerPage() {
                                         </div>
 
                                         <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center">
-                                            <div
-                                                className="min-w-0 flex-1 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white shadow-inner">
+                                            <div className="min-w-0 flex-1 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white shadow-inner">
                                                 <div className="truncate">{result.shortUrl}</div>
                                             </div>
 
@@ -287,12 +265,16 @@ export default function HeroShortenerPage() {
 
                                         <div className="mt-3 flex flex-wrap gap-2 text-xs text-white/60">
                       <span className="rounded-full bg-white/5 px-3 py-1 ring-1 ring-white/10">
-                        Alias: <span className="font-semibold text-white/80">{result.alias}</span>
+                        Alias:{" "}
+                          <span className="font-semibold text-white/80">
+                          {result.alias}
+                        </span>
                       </span>
+
                                             <span className="rounded-full bg-white/5 px-3 py-1 ring-1 ring-white/10">
                         QR:{" "}
                                                 <span className="font-semibold text-white/80">
-                          {request.enableQr ? "Enabled" : "Disabled"}
+                          {result.qrUrl ? "Enabled" : "Disabled"}
                         </span>
                       </span>
                                         </div>
@@ -301,12 +283,15 @@ export default function HeroShortenerPage() {
                                     <div className="lg:pl-2">
                                         {result.qrUrl ? (
                                             <div className="rounded-3xl bg-white/5 p-4 ring-1 ring-white/10">
-                                                <div
-                                                    className="text-xs font-semibold tracking-wider text-white/60 uppercase">QR
-                                                    Code
+                                                <div className="text-xs font-semibold tracking-wider text-white/60 uppercase">
+                                                    QR Code
                                                 </div>
                                                 <div className="mt-3 grid place-items-center rounded-2xl bg-white p-3">
-                                                    <img src={result.qrUrl} alt="QR code" className="h-44 w-44" />
+                                                    <img
+                                                        src={result.qrUrl}
+                                                        alt="QR code"
+                                                        className="h-44 w-44"
+                                                    />
                                                 </div>
                                                 <button
                                                     type="button"
@@ -318,12 +303,11 @@ export default function HeroShortenerPage() {
                                             </div>
                                         ) : (
                                             <div className="rounded-3xl bg-white/5 p-4 ring-1 ring-white/10">
-                                                <div
-                                                    className="text-xs font-semibold tracking-wider text-white/60 uppercase">QR
-                                                    Code
+                                                <div className="text-xs font-semibold tracking-wider text-white/60 uppercase">
+                                                    QR Code
                                                 </div>
-                                                <div className="mt-2 text-sm text-white/65">QR generation is disabled
-                                                    for this link.
+                                                <div className="mt-2 text-sm text-white/65">
+                                                    QR generation is disabled for this link.
                                                 </div>
                                             </div>
                                         )}
@@ -332,7 +316,7 @@ export default function HeroShortenerPage() {
 
                                 <details className="rounded-2xl bg-white/5 p-4 ring-1 ring-white/10">
                                     <summary className="cursor-pointer text-sm font-semibold text-white/85">
-                                        View request payload (mock)
+                                        View request payload
                                     </summary>
                                     <pre className="mt-3 overflow-auto text-xs text-white/70">
 {JSON.stringify(request, null, 2)}
@@ -341,7 +325,6 @@ export default function HeroShortenerPage() {
                             </div>
                         )}
                     </div>
-
                 </section>
             </div>
         </>
@@ -363,15 +346,20 @@ function ToggleCard({
 }) {
     return (
         <div
-            className={clsx("rounded-3xl p-4 ring-1", disabled ? "bg-white/3 ring-white/8" : "bg-white/5 ring-white/10")}>
+            className={clsx(
+                "rounded-3xl p-4 ring-1",
+                disabled ? "bg-white/3 ring-white/8" : "bg-white/5 ring-white/10"
+            )}
+        >
             <div className="flex items-start justify-between gap-4">
                 <div>
                     <div className="text-sm font-semibold">{title}</div>
-                    <div className={clsx("mt-1 text-sm", disabled ? "text-white/45" : "text-white/65")}>{subtitle}</div>
+                    <div className={clsx("mt-1 text-sm", disabled ? "text-white/45" : "text-white/65")}>
+                        {subtitle}
+                    </div>
                 </div>
 
-                <label
-                    className={clsx("relative inline-flex items-center", disabled && "cursor-not-allowed opacity-70")}>
+                <label className={clsx("relative inline-flex items-center", disabled && "cursor-not-allowed opacity-70")}>
                     <input
                         type="checkbox"
                         className="peer sr-only"

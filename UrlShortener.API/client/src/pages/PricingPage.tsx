@@ -55,7 +55,7 @@ export default function PricingPage() {
         setLoadingPlans(true);
         setError(null);
         try {
-            const res = await api.get<PlanDto[]>("/api/plans");
+            const res = await api.get<PlanDto[]>("/plans");
             setPlans(res.data ?? []);
         } catch (e: any) {
             setError(e?.response?.data ?? "Failed to load plans.");
@@ -74,7 +74,7 @@ export default function PricingPage() {
         setLoadingCurrent(true);
         setError(null);
         try {
-            const res = await api.get<CurrentPlanDto>("/api/subscriptions/me/current");
+            const res = await api.get<CurrentPlanDto>("/subscriptions/me/current");
             setCurrent(res.data ?? null);
         } catch (e: any) {
             // dacă token invalid => API poate da 401
@@ -157,14 +157,14 @@ export default function PricingPage() {
 
             if (!currentPlan) {
                 // subscribe
-                await api.post("/api/subscriptions/subscribe", { planId: selectedPlan.id });
+                await api.post("/subscriptions/subscribe", { planId: selectedPlan.id });
             } else {
                 // upgrade only
                 if (!isUpgrade(selectedPlan)) {
                     setError("You can only upgrade to higher plans.");
                     return;
                 }
-                await api.post("/api/subscriptions/upgrade", { newPlanId: selectedPlan.id });
+                await api.post("/subscriptions/upgrade", { newPlanId: selectedPlan.id });
             }
 
             // refresh current plan after action

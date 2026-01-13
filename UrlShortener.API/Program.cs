@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using UrlShortener.BusinessLogic;
+using UrlShortener.BusinessLogic.Context;
 using UrlShortener.BusinessLogic.Services.Profile;
 using UrlShortener.DataAccess;
 
@@ -13,7 +14,10 @@ builder.Services.AddDbContext<AppDbContext>(opt =>
 builder.Services.AddOpenApi();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
-builder.Services.Configure<ProfileService.PublicUrlsOptions>(builder.Configuration.GetSection("PublicUrls"));
+
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<ICurrentUserAccessor, CurrentUserAccessor>();
+// builder.Services.Configure<ProfileService.PublicUrlsOptions>(builder.Configuration.GetSection("PublicUrls"));
 
 builder.Services.AddDataAccess();
 builder.Services.AddBusinessLogic();

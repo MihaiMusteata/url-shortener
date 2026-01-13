@@ -27,4 +27,13 @@ public class ShortLinkRepository : IShortLinkRepository
             .Where(x => x.UserId == userId && x.CreatedAt.Year == year && x.CreatedAt.Month == month)
             .CountAsync(ct);
     }
+
+    public Task<bool> ShortCodeExistsAsync(string shortCode, CancellationToken ct = default)
+        => _db.ShortLinks.AsNoTracking().AnyAsync(x => x.ShortCode == shortCode, ct);
+
+    public Task AddAsync(ShortLinkDbTable entity, CancellationToken ct = default)
+        => _db.ShortLinks.AddAsync(entity, ct).AsTask();
+
+    public Task<int> SaveChangesAsync(CancellationToken ct = default)
+        => _db.SaveChangesAsync(ct);
 }
