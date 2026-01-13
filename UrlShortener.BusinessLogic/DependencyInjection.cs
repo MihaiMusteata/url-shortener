@@ -7,8 +7,10 @@ using UrlShortener.BusinessLogic.Services.Auth;
 using UrlShortener.BusinessLogic.Services.JwtToken;
 using UrlShortener.BusinessLogic.Services.Password;
 using UrlShortener.BusinessLogic.Services.Plan;
+using UrlShortener.BusinessLogic.Services.Profile;
 using UrlShortener.BusinessLogic.Services.Subscription;
 using UrlShortener.DataAccess.Repositories.Plan;
+using UrlShortener.DataAccess.Repositories.ShortLink;
 using UrlShortener.DataAccess.Repositories.Subscription;
 using UrlShortener.DataAccess.Repositories.User;
 
@@ -20,6 +22,8 @@ public static class DependencyInjection
     {
         services.AddScoped<IPlanService, PlanService>();
         services.AddScoped<ISubscriptionService, SubscriptionService>();
+        services.AddScoped<IProfileService, ProfileService>();
+        
         return services;
     }
     
@@ -28,6 +32,7 @@ public static class DependencyInjection
         services.AddScoped<IPlanRepository, PlanRepository>();
         services.AddScoped<ISubscriptionRepository, SubscriptionRepository>();
         services.AddScoped<IUserRepository, UserRepository>();
+        services.AddScoped<IShortLinkRepository, ShortLinkRepository>();
         
         return services;
     }

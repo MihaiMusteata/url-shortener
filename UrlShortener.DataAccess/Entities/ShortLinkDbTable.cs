@@ -8,6 +8,7 @@ public class ShortLinkDbTable
     public string ShortCode { get; set; } = "";
     public bool IsActive { get; set; }
     public long TotalClicks { get; set; }
+    public DateTime CreatedAt { get; set; } 
 
     public UserDbTable? User { get; set; }
     public QrCodeDbTable? QrCode { get; set; }

@@ -212,7 +212,7 @@ function AuthLayout({ children }: { children: React.ReactNode }) {
                 </div>
             </header>
 
-            <main className="relative" style={{height: 'calc(100vh - 72px - 94px)'}}>
+            <main className="relative">
                 <div className="mx-auto w-full max-w-5xl px-4 py-10 sm:px-6 sm:py-14 lg:max-w-6xl lg:px-8 2xl:max-w-7xl 2xl:px-10">
                     {children}
                 </div>

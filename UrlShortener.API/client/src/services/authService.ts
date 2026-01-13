@@ -8,7 +8,7 @@ function errorMessage(e: any): string {
 export const authService = {
     async login(dto: LoginRequestDto): Promise<AuthResultDto> {
         try {
-            const res = await api.post<AuthResultDto>("/api/auth/login", dto);
+            const res = await api.post<AuthResultDto>("/auth/login", dto);
             return res.data;
         } catch (e) {
             throw new Error(errorMessage(e));
@@ -17,7 +17,7 @@ export const authService = {
 
     async signup(dto: SignUpRequestDto): Promise<AuthResultDto> {
         try {
-            const res = await api.post<AuthResultDto>("/api/auth/signup", dto);
+            const res = await api.post<AuthResultDto>("/auth/signup", dto);
             return res.data;
         } catch (e) {
             throw new Error(errorMessage(e));

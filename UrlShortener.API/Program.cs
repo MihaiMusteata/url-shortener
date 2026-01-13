@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using UrlShortener.BusinessLogic;
+using UrlShortener.BusinessLogic.Services.Profile;
 using UrlShortener.DataAccess;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -12,9 +13,10 @@ builder.Services.AddDbContext<AppDbContext>(opt =>
 builder.Services.AddOpenApi();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+builder.Services.Configure<ProfileService.PublicUrlsOptions>(builder.Configuration.GetSection("PublicUrls"));
 
-builder.Services.AddBusinessLogic();
 builder.Services.AddDataAccess();
+builder.Services.AddBusinessLogic();
 builder.Services.AddAuth(builder.Configuration);
 
 var corsOrigins = builder.Configuration

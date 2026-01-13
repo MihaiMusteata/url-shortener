@@ -17,3 +17,12 @@ public class CurrentPlanDto
     public decimal? PriceMonthly { get; set; }
     public int? MaxLinksPerMonth { get; set; }
 }
+
+public class PlanSummaryDto
+{
+    public string Name { get; set; } = "";
+    public decimal PriceMonthly { get; set; }
+    public int MaxLinksPerMonth { get; set; }
+    public bool CustomAliasEnabled { get; set; }
+    public bool QrEnabled { get; set; }
+}
