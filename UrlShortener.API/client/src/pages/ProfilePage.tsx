@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 
 export type ShortLinkDto = {
     id: string;
@@ -19,6 +20,18 @@ export type UserProfileDto = {
     planName: string;
 };
 
+export type PlanSummaryDto = {
+    name: string;
+    priceMonthly: number;
+    maxLinksPerMonth: number;
+    customAliasEnabled: boolean;
+    qrEnabled: boolean;
+};
+
+export type UsageSummaryDto = {
+    linksCreatedThisMonth: number;
+};
+
 function clsx(...parts: Array<string | boolean | undefined | null>) {
     return parts.filter(Boolean).join(" ");
 }
@@ -35,6 +48,16 @@ function truncateMiddle(s: string, max = 44) {
     return `${s.slice(0, left)}...${s.slice(-right)}`;
 }
 
+function formatPriceMonthly(v: number) {
+    // adjust currency later
+    return `${v.toFixed(2)}/mo`;
+}
+
+function percent(a: number, b: number) {
+    if (b <= 0) return 0;
+    return Math.max(0, Math.min(100, Math.round((a / b) * 100)));
+}
+
 const mockUser: UserProfileDto = {
     id: "1f5c1c6e-2a0c-4d36-98c5-9f09e4f13caa",
     firstName: "Mihail",
@@ -42,6 +65,18 @@ const mockUser: UserProfileDto = {
     username: "mihail.dev",
     email: "mihail@example.com",
     planName: "Pro",
+};
+
+const mockPlan: PlanSummaryDto = {
+    name: "Pro",
+    priceMonthly: 9.99,
+    maxLinksPerMonth: 1000,
+    customAliasEnabled: true,
+    qrEnabled: true,
+};
+
+const mockUsage: UsageSummaryDto = {
+    linksCreatedThisMonth: 238,
 };
 
 const mockLinks: ShortLinkDto[] = [
@@ -58,10 +93,10 @@ const mockLinks: ShortLinkDto[] = [
         id: "2-6c48-4c95-b5c2-3d0d7a5b0e12",
         originalUrl: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
         shortUrl: "https://sho.rt/rickroll",
-        alias: "rickroll",
+        alias: "rickroll-2",
         createdAt: "2026-01-10T09:22:00Z",
         qrEnabled: false,
-        clicks: 142,
+        clicks: 9,
     },
     {
         id: "a3c1d2e3-1111-4aaa-9bbb-7e5a5c5b1234",
@@ -95,6 +130,10 @@ const mockLinks: ShortLinkDto[] = [
 export default function ProfilePage() {
     const [query, setQuery] = useState("");
     const [sort, setSort] = useState<"newest" | "clicks">("newest");
+    const navigate = useNavigate();
+
+    const usedPct = percent(mockUsage.linksCreatedThisMonth, mockPlan.maxLinksPerMonth);
+    const remaining = Math.max(0, mockPlan.maxLinksPerMonth - mockUsage.linksCreatedThisMonth);
 
     const filtered = useMemo(() => {
         const q = query.trim().toLowerCase();
@@ -117,46 +156,151 @@ export default function ProfilePage() {
     }, [query, sort]);
 
     function onOpenDetails(linkId: string) {
-        // Future: navigate(`/links/${linkId}`)
+        // Future: navigate(`/details/${linkId}`)
         alert(`Open details for link: ${linkId}`);
     }
 
     async function copy(text: string) {
         try {
             await navigator.clipboard.writeText(text);
-        } catch {
-            // ignore
-        }
+        } catch {}
     }
 
     return (
         <>
             {/* background */}
             <div className="pointer-events-none fixed inset-0 overflow-hidden">
-                <div
-                    className="absolute left-1/2 top-[-240px] h-[520px] w-[720px] -translate-x-1/2 rounded-full bg-gradient-to-r from-indigo-500/20 via-fuchsia-500/20 to-cyan-400/20 blur-3xl sm:h-[620px] sm:w-[920px] 2xl:h-[720px] 2xl:w-[1100px]" />
-                <div
-                    className="absolute bottom-[-240px] right-[-240px] h-[420px] w-[420px] rounded-full bg-gradient-to-r from-cyan-400/10 to-indigo-500/10 blur-3xl sm:h-[520px] sm:w-[520px]" />
-                <div
-                    className="absolute top-[35%] left-[-220px] h-[360px] w-[360px] rounded-full bg-gradient-to-r from-fuchsia-500/10 to-indigo-500/10 blur-3xl" />
+                <div className="absolute left-1/2 top-[-240px] h-[520px] w-[720px] -translate-x-1/2 rounded-full bg-gradient-to-r from-indigo-500/20 via-fuchsia-500/20 to-cyan-400/20 blur-3xl sm:h-[620px] sm:w-[920px] 2xl:h-[720px] 2xl:w-[1100px]" />
+                <div className="absolute bottom-[-240px] right-[-240px] h-[420px] w-[420px] rounded-full bg-gradient-to-r from-cyan-400/10 to-indigo-500/10 blur-3xl sm:h-[520px] sm:w-[520px]" />
+                <div className="absolute top-[35%] left-[-220px] h-[360px] w-[360px] rounded-full bg-gradient-to-r from-fuchsia-500/10 to-indigo-500/10 blur-3xl" />
             </div>
 
-            <div
-                className="relative mx-auto w-full max-w-5xl px-4 sm:px-6 sm:py-14 lg:max-w-6xl lg:px-8 2xl:max-w-7xl 2xl:px-10">
+            <div className="relative mx-auto w-full max-w-5xl px-4 py-10 sm:px-6 sm:py-14 lg:max-w-6xl lg:px-8 2xl:max-w-7xl 2xl:px-10">
+                {/* USER + PLAN CARD */}
+                <section className="mb-8 grid gap-4 lg:grid-cols-3">
+                    {/* user */}
+                    <div className="rounded-3xl bg-white/5 p-6 ring-1 ring-white/10 backdrop-blur">
+                        <div className="flex items-start gap-4">
+                            <div className="h-12 w-12 rounded-2xl bg-white/10 ring-1 ring-white/15 flex items-center justify-center shrink-0">
+                <span className="text-sm font-semibold">
+                  {mockUser.firstName.slice(0, 1).toUpperCase()}
+                    {mockUser.lastName.slice(0, 1).toUpperCase()}
+                </span>
+                            </div>
+                            <div className="min-w-0">
+                                <div className="text-xs font-semibold tracking-wider text-white/60 uppercase">Profile</div>
+                                <div className="mt-1 text-lg font-semibold truncate">
+                                    {mockUser.firstName} {mockUser.lastName}
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="mt-5 grid gap-3">
+                            <div className="rounded-2xl bg-white/5 p-4 ring-1 ring-white/10">
+                                <div className="text-xs font-semibold tracking-wider text-white/60 uppercase">Email</div>
+                                <div className="mt-2 text-sm font-semibold text-white/80 truncate">{mockUser.email}</div>
+                            </div>
+                            <div className="rounded-2xl bg-white/5 p-4 ring-1 ring-white/10">
+                                <div className="text-xs font-semibold tracking-wider text-white/60 uppercase">Username</div>
+                                <div className="mt-2 text-sm font-semibold text-white/80 truncate">{mockUser.username}</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* plan */}
+                    <div className="lg:col-span-2 rounded-3xl bg-white/5 p-6 ring-1 ring-white/10 backdrop-blur">
+                        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                            <div>
+                                <div className="text-xs font-semibold tracking-wider text-white/60 uppercase">Current plan</div>
+                                <div className="mt-1 flex flex-wrap items-center gap-2">
+                                    <div className="text-xl font-semibold">{mockPlan.name}</div>
+                                    <span className="rounded-full bg-white/5 px-3 py-1 text-xs font-semibold text-white/70 ring-1 ring-white/10">
+                    {formatPriceMonthly(mockPlan.priceMonthly)}
+                  </span>
+                                </div>
+                                <div className="mt-2 text-sm text-white/65">
+                                    Limit: <span className="font-semibold text-white/80">{mockPlan.maxLinksPerMonth}</span> links / month
+                                </div>
+                            </div>
+
+                            <div className="flex flex-wrap gap-2">
+                <span
+                    className={clsx(
+                        "rounded-full px-3 py-1 text-xs font-semibold ring-1",
+                        mockPlan.customAliasEnabled
+                            ? "bg-emerald-400/10 ring-emerald-400/20 text-emerald-300"
+                            : "bg-white/5 ring-white/10 text-white/70"
+                    )}
+                >
+                  {mockPlan.customAliasEnabled ? "Custom alias" : "No alias"}
+                </span>
+                                <span
+                                    className={clsx(
+                                        "rounded-full px-3 py-1 text-xs font-semibold ring-1",
+                                        mockPlan.qrEnabled ? "bg-emerald-400/10 ring-emerald-400/20 text-emerald-300" : "bg-white/5 ring-white/10 text-white/70"
+                                    )}
+                                >
+                  {mockPlan.qrEnabled ? "QR enabled" : "No QR"}
+                </span>
+                            </div>
+                        </div>
+
+                        {/* usage */}
+                        <div className="mt-6 rounded-3xl bg-white/5 p-5 ring-1 ring-white/10">
+                            <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+                                <div>
+                                    <div className="text-sm font-semibold">Monthly usage</div>
+                                    <div className="mt-1 text-sm text-white/65">
+                                        Used{" "}
+                                        <span className="font-semibold text-white/85">
+                      {mockUsage.linksCreatedThisMonth}
+                    </span>{" "}
+                                        of{" "}
+                                        <span className="font-semibold text-white/85">
+                      {mockPlan.maxLinksPerMonth}
+                    </span>{" "}
+                                        links
+                                        <span className="text-white/60"> • {remaining} remaining</span>
+                                    </div>
+                                </div>
+                                <div className="text-sm text-white/70">
+                                    <span className="font-semibold text-white/85">{usedPct}%</span> used
+                                </div>
+                            </div>
+
+                            <div className="mt-4 h-3 w-full rounded-full bg-white/10 ring-1 ring-white/10 overflow-hidden">
+                                <div
+                                    className="h-full rounded-full bg-white"
+                                    style={{ width: `${usedPct}%`, opacity: usedPct >= 95 ? 0.85 : 1 }}
+                                />
+                            </div>
+
+                            <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                                <div className="text-xs text-white/55">
+                                    Resets monthly (connect to subscription period later)
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={() => navigate(`/pricing?from=profile&currentPlan=${encodeURIComponent(mockPlan.name)}`)}
+                                    className="rounded-2xl bg-white px-4 py-2.5 text-sm font-semibold text-[#070A12] hover:bg-white/90"
+                                >
+                                    Upgrade plan
+                                </button>
+
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
                 {/* controls */}
                 <section>
                     <div className="grid gap-4 lg:grid-cols-[1fr_auto] lg:items-end">
-                        {/* LEFT: title */}
                         <div>
                             <h1 className="text-2xl font-semibold tracking-tight">Your links</h1>
-                            <p className="mt-2 text-sm text-white/65">
-                                All your shortened links in one place. Search, sort, and open details.
-                            </p>
+                            <p className="mt-2 text-sm text-white/65">All your shortened links in one place. Search, sort, and open details.</p>
                         </div>
 
-                        {/* RIGHT: search + sort */}
                         <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-end">
-                            {/* search */}
                             <div className="relative w-full sm:w-[22rem] lg:w-[26rem]">
                                 <input
                                     value={query}
@@ -164,27 +308,18 @@ export default function ProfilePage() {
                                     placeholder="Search by alias or URL..."
                                     className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white placeholder:text-white/40 shadow-inner outline-none focus:bg-white/10 focus:ring-2 focus:ring-white/40"
                                 />
-                                <div
-                                    className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-white/40">
-                                    ⌕
-                                </div>
+                                <div className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-white/40">⌕</div>
                             </div>
 
-                            {/* sort */}
                             <div>
-                                <div
-                                    className="text-xs font-semibold tracking-wider text-white/60 uppercase text-right">
-                                    Sort
-                                </div>
+                                <div className="text-xs font-semibold tracking-wider text-white/60 uppercase text-right">Sort</div>
                                 <div className="mt-2 inline-flex rounded-2xl bg-white/5 p-1 ring-1 ring-white/10">
                                     <button
                                         type="button"
                                         onClick={() => setSort("newest")}
                                         className={clsx(
                                             "rounded-xl px-4 py-2 text-sm font-semibold transition",
-                                            sort === "newest"
-                                                ? "bg-white text-[#070A12]"
-                                                : "text-white/80 hover:bg-white/10"
+                                            sort === "newest" ? "bg-white text-[#070A12]" : "text-white/80 hover:bg-white/10"
                                         )}
                                     >
                                         Newest
@@ -194,9 +329,7 @@ export default function ProfilePage() {
                                         onClick={() => setSort("clicks")}
                                         className={clsx(
                                             "rounded-xl px-4 py-2 text-sm font-semibold transition",
-                                            sort === "clicks"
-                                                ? "bg-white text-[#070A12]"
-                                                : "text-white/80 hover:bg-white/10"
+                                            sort === "clicks" ? "bg-white text-[#070A12]" : "text-white/80 hover:bg-white/10"
                                         )}
                                     >
                                         Clicks
@@ -211,9 +344,7 @@ export default function ProfilePage() {
                         {filtered.length === 0 ? (
                             <div className="rounded-3xl bg-white/5 p-6 ring-1 ring-white/10">
                                 <div className="text-sm font-semibold">No links found</div>
-                                <div className="mt-1 text-sm text-white/65">
-                                    Try a different search, or create your first link.
-                                </div>
+                                <div className="mt-1 text-sm text-white/65">Try a different search, or create your first link.</div>
                             </div>
                         ) : (
                             filtered.map((l) => (
@@ -224,8 +355,7 @@ export default function ProfilePage() {
                                     <div className="grid gap-4 sm:grid-cols-[1fr_auto] sm:items-center">
                                         <div className="min-w-0">
                                             <div className="flex items-start gap-3">
-                                                <div
-                                                    className="h-10 w-10 rounded-2xl bg-white/5 ring-1 ring-white/10 flex items-center justify-center shrink-0">
+                                                <div className="h-10 w-10 rounded-2xl bg-white/5 ring-1 ring-white/10 flex items-center justify-center shrink-0">
                                                     {l.qrEnabled ? "▦" : "🔗"}
                                                 </div>
 
@@ -233,15 +363,13 @@ export default function ProfilePage() {
                                                     <div className="flex flex-wrap items-center gap-2">
                                                         <div className="text-lg font-semibold truncate">{l.alias}</div>
 
-                                                        <span
-                                                            className="rounded-full bg-white/5 px-3 py-1 text-xs font-semibold text-white/80 ring-1 ring-white/10">
-                                                            {l.clicks} clicks
-                                                        </span>
+                                                        <span className="rounded-full bg-white/5 px-3 py-1 text-xs font-semibold text-white/80 ring-1 ring-white/10">
+                              {l.clicks} clicks
+                            </span>
 
-                                                        <span
-                                                            className="rounded-full bg-white/5 px-3 py-1 text-xs font-semibold text-white/70 ring-1 ring-white/10">
-                                                            {formatDate(l.createdAt)}
-                                                        </span>
+                                                        <span className="rounded-full bg-white/5 px-3 py-1 text-xs font-semibold text-white/70 ring-1 ring-white/10">
+                              {formatDate(l.createdAt)}
+                            </span>
 
                                                         <span
                                                             className={clsx(
@@ -251,21 +379,18 @@ export default function ProfilePage() {
                                                                     : "bg-white/5 ring-white/10 text-white/70"
                                                             )}
                                                         >
-                                                            {l.qrEnabled ? "QR enabled" : "No QR"}
-                                                        </span>
-
+                              {l.qrEnabled ? "QR enabled" : "No QR"}
+                            </span>
                                                     </div>
 
                                                     <div className="mt-2 text-sm text-white/70">
                                                         <span className="text-white/50">Short:</span>{" "}
-                                                        <span
-                                                            className="font-semibold text-white/90">{truncateMiddle(l.shortUrl, 62)}</span>
+                                                        <span className="font-semibold text-white/90">{truncateMiddle(l.shortUrl, 62)}</span>
                                                     </div>
 
                                                     <div className="mt-1 text-sm text-white/60">
                                                         <span className="text-white/50">Original:</span>{" "}
-                                                        <span
-                                                            className="font-semibold text-white/75">{truncateMiddle(l.originalUrl, 62)}</span>
+                                                        <span className="font-semibold text-white/75">{truncateMiddle(l.originalUrl, 62)}</span>
                                                     </div>
                                                 </div>
                                             </div>
