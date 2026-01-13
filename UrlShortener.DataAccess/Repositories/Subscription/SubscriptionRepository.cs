@@ -11,6 +11,11 @@ public class SubscriptionRepository : ISubscriptionRepository
     {
         _db = db;
     }
+    
+    public Task<SubscriptionDbTable?> GetActiveByUserIdAsync(Guid userId, CancellationToken ct = default)
+        => _db.Subscriptions
+            .Include(x => x.Plan)
+            .FirstOrDefaultAsync(x => x.UserId == userId && x.Active, ct);
 
     public Task<List<SubscriptionDbTable>> GetAllAsync(CancellationToken ct = default)
         => _db.Subscriptions

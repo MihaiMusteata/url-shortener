@@ -101,3 +101,5 @@ seed.sql
 
 # Local run settings
 **/Properties/launchSettings.json
+
+/secrets

@@ -9,3 +9,11 @@ public class PlanDto
     public bool CustomAliasEnabled { get; set; }
     public bool QrEnabled { get; set; }
 }
+
+public class CurrentPlanDto
+{
+    public Guid? PlanId { get; set; }
+    public string? PlanName { get; set; }
+    public decimal? PriceMonthly { get; set; }
+    public int? MaxLinksPerMonth { get; set; }
+}

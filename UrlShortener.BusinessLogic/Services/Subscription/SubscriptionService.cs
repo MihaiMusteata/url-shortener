@@ -1,6 +1,7 @@
 using UrlShortener.BusinessLogic.DTOs;
 using UrlShortener.BusinessLogic.Mappers;
 using UrlShortener.BusinessLogic.Wrappers;
+using UrlShortener.DataAccess.Entities;
 using UrlShortener.DataAccess.Repositories.Plan;
 using UrlShortener.DataAccess.Repositories.Subscription;
 using UrlShortener.DataAccess.Repositories.User;
@@ -177,5 +178,128 @@ public class SubscriptionService : ISubscriptionService
             return ServiceResponse.Fail("Plan not found.");
 
         return ServiceResponse.Ok();
+    }
+
+
+    public async Task<ServiceResponse<SubscriptionActionResultDto>> SubscribeAsync(Guid userId, Guid planId,
+        CancellationToken ct = default)
+    {
+        var user = await _users.GetByIdAsync(userId, ct);
+        if (user is null)
+            return ServiceResponse<SubscriptionActionResultDto>.Fail("User not found.");
+
+        var plan = await _plans.GetByIdAsync(planId, ct);
+        if (plan is null)
+            return ServiceResponse<SubscriptionActionResultDto>.Fail("Plan not found.");
+
+        var active = await _subs.GetActiveByUserIdAsync(userId, ct);
+        if (active is not null)
+            return ServiceResponse<SubscriptionActionResultDto>.Fail(
+                "User already has an active subscription. Use upgrade.");
+
+        var sub = new SubscriptionDbTable
+        {
+            Id = Guid.NewGuid(),
+            UserId = userId,
+            PlanId = planId,
+            Active = true
+        };
+
+        await _subs.AddAsync(sub, ct);
+        await _subs.SaveChangesAsync(ct);
+
+        return ServiceResponse<SubscriptionActionResultDto>.Ok(new SubscriptionActionResultDto
+        {
+            SubscriptionId = sub.Id,
+            UserId = userId,
+            PlanId = plan.Id,
+            PlanName = plan.Name,
+            Active = sub.Active,
+            Action = "subscribed"
+        }, "Subscribed.");
+    }
+
+    public async Task<ServiceResponse<SubscriptionActionResultDto>> UpgradeAsync(Guid userId, Guid newPlanId,
+        CancellationToken ct = default)
+    {
+        var user = await _users.GetByIdAsync(userId, ct);
+        if (user is null)
+            return ServiceResponse<SubscriptionActionResultDto>.Fail("User not found.");
+
+        var newPlan = await _plans.GetByIdAsync(newPlanId, ct);
+        if (newPlan is null)
+            return ServiceResponse<SubscriptionActionResultDto>.Fail("Plan not found.");
+
+        var current = await _subs.GetActiveByUserIdAsync(userId, ct);
+        if (current is null)
+            return ServiceResponse<SubscriptionActionResultDto>.Fail("No active subscription found.");
+
+        if (current.PlanId == newPlanId)
+            return ServiceResponse<SubscriptionActionResultDto>.Fail("User is already on this plan.");
+
+        if (current.Plan is null)
+            return ServiceResponse<SubscriptionActionResultDto>.Fail("Current plan data missing.");
+
+        if (!IsUpgrade(current.Plan, newPlan))
+            return ServiceResponse<SubscriptionActionResultDto>.Fail("Only upgrades are allowed.");
+
+        current.Active = false;
+        _subs.Update(current);
+
+        var upgraded = new SubscriptionDbTable
+        {
+            Id = Guid.NewGuid(),
+            UserId = userId,
+            PlanId = newPlanId,
+            Active = true
+        };
+
+        await _subs.AddAsync(upgraded, ct);
+        await _subs.SaveChangesAsync(ct);
+
+        return ServiceResponse<SubscriptionActionResultDto>.Ok(new SubscriptionActionResultDto
+        {
+            SubscriptionId = upgraded.Id,
+            UserId = userId,
+            PlanId = newPlan.Id,
+            PlanName = newPlan.Name,
+            Active = upgraded.Active,
+            Action = "upgraded"
+        }, "Upgraded.");
+    }
+
+
+    public async Task<ServiceResponse<CurrentPlanDto>> GetMyCurrentPlanAsync(Guid userId,
+        CancellationToken ct = default)
+    {
+        var active = await _subs.GetActiveByUserIdAsync(userId, ct);
+        if (active is null || active.Plan is null)
+        {
+            return ServiceResponse<CurrentPlanDto>.Ok(new CurrentPlanDto
+            {
+                PlanId = null,
+                PlanName = null,
+                PriceMonthly = null,
+                MaxLinksPerMonth = null
+            });
+        }
+
+        return ServiceResponse<CurrentPlanDto>.Ok(new CurrentPlanDto
+        {
+            PlanId = active.Plan.Id,
+            PlanName = active.Plan.Name,
+            PriceMonthly = active.Plan.PriceMonthly,
+            MaxLinksPerMonth = active.Plan.MaxLinksPerMonth
+        });
+    }
+
+
+    private static bool IsUpgrade(PlanDbTable current, PlanDbTable next)
+    {
+        if (next.PriceMonthly > current.PriceMonthly) return true;
+        if (next.PriceMonthly < current.PriceMonthly) return false;
+
+        if (next.MaxLinksPerMonth > current.MaxLinksPerMonth) return true;
+        return false;
     }
 }

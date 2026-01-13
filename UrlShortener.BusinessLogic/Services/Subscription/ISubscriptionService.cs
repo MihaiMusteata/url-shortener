@@ -14,4 +14,8 @@ public interface ISubscriptionService
     Task<ServiceResponse> DeleteAsync(Guid id, CancellationToken ct = default);
     Task<ServiceResponse> ActivateAsync(Guid id, CancellationToken ct = default);
     Task<ServiceResponse> DeactivateAsync(Guid id, CancellationToken ct = default);
+    Task<ServiceResponse<SubscriptionActionResultDto>> SubscribeAsync(Guid userId, Guid planId, CancellationToken ct = default);
+    Task<ServiceResponse<SubscriptionActionResultDto>> UpgradeAsync(Guid userId, Guid newPlanId, CancellationToken ct = default);
+    Task<ServiceResponse<CurrentPlanDto>> GetMyCurrentPlanAsync(Guid userId, CancellationToken ct = default);
+
 }

@@ -12,4 +12,5 @@ public interface ISubscriptionRepository
     void Update(SubscriptionDbTable entity);
     void Remove(SubscriptionDbTable entity);
     Task<int> SaveChangesAsync(CancellationToken ct = default);
+    Task<SubscriptionDbTable?> GetActiveByUserIdAsync(Guid userId, CancellationToken ct = default);
 }
