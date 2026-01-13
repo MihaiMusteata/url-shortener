@@ -79,7 +79,7 @@ export default function PricingPage() {
     };
 
     return (
-        <div className="min-h-screen bg-[#070A12] text-white">
+        <>
             {/* subtle background */}
             <div className="pointer-events-none fixed inset-0 overflow-hidden">
                 {/* center bloom scales better on ultrawide */}
@@ -88,36 +88,10 @@ export default function PricingPage() {
                 <div
                     className="absolute bottom-[-220px] right-[-220px] h-[420px] w-[420px] rounded-full bg-gradient-to-r from-cyan-400/10 to-indigo-500/10 blur-3xl sm:h-[520px] sm:w-[520px]" />
             </div>
-
-            {/* page container:
-          - max width grows on large screens (2xl/3xl)
-          - side padding grows too
-          - vertical padding adapts */}
-            <div
-                className="relative mx-auto w-full max-w-5xl px-4 py-10 sm:px-6 sm:py-14 lg:max-w-6xl lg:px-8 2xl:max-w-7xl 2xl:px-10 3xl:max-w-[92rem] 3xl:px-12">
-                {/* header */}
-                <header className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                    <div className="flex items-center gap-3">
-                        <div
-                            className="h-10 w-10 rounded-2xl bg-white/10 ring-1 ring-white/15 backdrop-blur flex items-center justify-center">
-                            <span className="text-sm font-semibold">US</span>
-                        </div>
-                        <div className="leading-tight">
-                            <div className="text-sm font-semibold tracking-wide">UrlShortener</div>
-                            <div className="text-xs text-white/60">Pricing</div>
-                        </div>
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                        <button
-                            className="w-full sm:w-auto rounded-2xl px-4 py-2 text-sm font-semibold bg-white text-[#070A12] hover:bg-white/90">
-                            Sign in
-                        </button>
-                    </div>
-                </header>
-
+            
+            <div className="relative mx-auto w-full max-w-5xl px-4 sm:px-6 sm:py-14 lg:max-w-6xl lg:px-8 2xl:max-w-7xl 2xl:px-10 3xl:max-w-[92rem] 3xl:px-12">
                 {/* hero */}
-                <section className="mt-10 sm:mt-12">
+                <section>
                     <div className="max-w-2xl">
                         <h1 className="text-3xl font-semibold tracking-tight sm:text-5xl">
                             Choose the plan that fits you.
@@ -317,10 +291,7 @@ export default function PricingPage() {
                     </div>
                 </section>
 
-                <footer className="mt-14 border-t border-white/10 pt-8">
-                    <div className="text-sm text-white/60">© 2026 UrlShortener</div>
-                </footer>
             </div>
-        </div>
+        </>
     );
 }

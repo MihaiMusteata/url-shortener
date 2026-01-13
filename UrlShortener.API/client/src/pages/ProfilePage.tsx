@@ -130,7 +130,7 @@ export default function ProfilePage() {
     }
 
     return (
-        <div className="min-h-screen w-full bg-[#070A12] text-white">
+        <>
             {/* background */}
             <div className="pointer-events-none fixed inset-0 overflow-hidden">
                 <div
@@ -142,45 +142,9 @@ export default function ProfilePage() {
             </div>
 
             <div
-                className="relative mx-auto w-full max-w-5xl px-4 py-10 sm:px-6 sm:py-14 lg:max-w-6xl lg:px-8 2xl:max-w-7xl 2xl:px-10">
-                {/* header */}
-                <header className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                    <div className="flex items-center gap-3">
-                        <div
-                            className="h-12 w-12 rounded-2xl bg-white/10 ring-1 ring-white/15 backdrop-blur flex items-center justify-center">
-              <span className="text-sm font-semibold">
-                {mockUser.firstName.slice(0, 1).toUpperCase()}
-                  {mockUser.lastName.slice(0, 1).toUpperCase()}
-              </span>
-                        </div>
-
-                        <div className="leading-tight">
-                            <div className="text-lg font-semibold tracking-tight">
-                                {mockUser.firstName} {mockUser.lastName}
-                            </div>
-                            <div className="text-sm text-white/60">
-                                @{mockUser.username} • {mockUser.email}
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                        <div className="rounded-2xl bg-white/5 px-3 py-2 ring-1 ring-white/10">
-                            <div className="text-[11px] font-semibold uppercase tracking-wider text-white/50">
-                                Plan
-                            </div>
-                            <div className="text-sm font-semibold text-white">{mockUser.planName}</div>
-                        </div>
-
-                        <button
-                            className="rounded-2xl px-4 py-2 text-sm font-semibold bg-white text-[#070A12] hover:bg-white/90">
-                            New link
-                        </button>
-                    </div>
-                </header>
-
+                className="relative mx-auto w-full max-w-5xl px-4 sm:px-6 sm:py-14 lg:max-w-6xl lg:px-8 2xl:max-w-7xl 2xl:px-10">
                 {/* controls */}
-                <section className="mt-10">
+                <section>
                     <div className="grid gap-4 lg:grid-cols-[1fr_auto] lg:items-end">
                         {/* LEFT: title */}
                         <div>
@@ -339,11 +303,7 @@ export default function ProfilePage() {
                         )}
                     </div>
                 </section>
-
-                <footer className="mt-14 border-t border-white/10 pt-8">
-                    <div className="text-sm text-white/60">© 2026 UrlShortener</div>
-                </footer>
             </div>
-        </div>
+        </>
     );
 }

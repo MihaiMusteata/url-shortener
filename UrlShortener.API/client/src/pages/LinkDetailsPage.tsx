@@ -32,10 +32,10 @@ export type ShortLinkDetailsDto = {
 
     clicksLast7Days: DailyClicksDto[]; // already aggregated by day
     topReferrers: TopReferrerDto[]; // already aggregated
-    recentEvents: LinkClickEventDto[]; // minimal, already normalized
+    recentEvents: LinkClickEventDto[]; // minimal, already normalized (can contain more than 7 days)
 };
 
-/** MOCK DATA (NOW PRE-PROCESSED LIKE THE SERVICE WILL RETURN) */
+/** MOCK DATA (pre-processed like the service will return) */
 const mockDetails: ShortLinkDetailsDto = {
     id: "a9f4c0be-6c48-4c95-b5c2-3d0d7a5b0e12",
     alias: "rickroll",
@@ -67,37 +67,20 @@ const mockDetails: ShortLinkDetailsDto = {
     ],
 
     recentEvents: [
-        {
-            id: "1",
-            clickedAt: "2026-01-13T11:05:12Z",
-            referrer: "google.com",
-            ua: "Chrome • macOS",
-        },
-        {
-            id: "2",
-            clickedAt: "2026-01-13T10:44:02Z",
-            referrer: "Direct",
-            ua: "Safari • iOS • Mobile",
-        },
-        {
-            id: "3",
-            clickedAt: "2026-01-13T09:22:44Z",
-            referrer: "twitter.com",
-            ua: "Edge • Windows",
-        },
-        {
-            id: "4",
-            clickedAt: "2026-01-12T19:07:15Z",
-            referrer: "t.co",
-            ua: "Chrome • Android • Mobile",
-        },
-        {
-            id: "5",
-            clickedAt: "2026-01-12T18:51:33Z",
-            referrer: "google.com",
-            ua: "Firefox • Linux",
-        },
-        // ... add more mock events if you want
+        // 2026-01-13
+        { id: "e1", clickedAt: "2026-01-13T11:05:12Z", referrer: "google.com", ua: "Chrome • macOS" },
+        { id: "e2", clickedAt: "2026-01-13T10:44:02Z", referrer: "Direct", ua: "Safari • iOS • Mobile" },
+        { id: "e3", clickedAt: "2026-01-13T09:22:44Z", referrer: "twitter.com", ua: "Edge • Windows" },
+        { id: "e4", clickedAt: "2026-01-13T08:12:30Z", referrer: "google.com", ua: "Chrome • Android • Mobile" },
+
+        // 2026-01-12
+        { id: "e5", clickedAt: "2026-01-12T19:07:15Z", referrer: "t.co", ua: "Chrome • Android • Mobile" },
+        { id: "e6", clickedAt: "2026-01-12T18:51:33Z", referrer: "google.com", ua: "Firefox • Linux" },
+        { id: "e7", clickedAt: "2026-01-12T16:40:08Z", referrer: "Direct", ua: "Chrome • Windows" },
+
+        // 2026-01-11
+        { id: "e8", clickedAt: "2026-01-11T14:19:52Z", referrer: "facebook.com", ua: "Safari • macOS" },
+        { id: "e9", clickedAt: "2026-01-11T10:01:05Z", referrer: "twitter.com", ua: "Chrome • Windows" },
     ],
 };
 
@@ -126,6 +109,11 @@ function dayLabel(yyyyMMdd: string) {
     return d.toLocaleDateString(undefined, { weekday: "short" });
 }
 
+function formatDayPretty(yyyyMMdd: string) {
+    const d = new Date(`${yyyyMMdd}T00:00:00`);
+    return d.toLocaleDateString(undefined, { weekday: "long", year: "numeric", month: "long", day: "numeric" });
+}
+
 function truncateMiddle(s: string, max = 68) {
     if (s.length <= max) return s;
     const left = Math.max(18, Math.floor(max * 0.55));
@@ -147,14 +135,23 @@ export default function LinkDetailsPage() {
         count?: number;
     }>({ show: false, x: 0, y: 0 });
 
-    const maxDay = useMemo(
-        () => Math.max(...d.clicksLast7Days.map((x) => x.count), 1),
-        [d.clicksLast7Days]
-    );
+    const maxDay = useMemo(() => Math.max(...d.clicksLast7Days.map((x) => x.count), 1), [d.clicksLast7Days]);
+
+    const totalLast7 = useMemo(() => d.clicksLast7Days.reduce((s, x) => s + x.count, 0), [d.clicksLast7Days]);
+
+    const selectedDayCount = useMemo(() => {
+        if (!selectedDate) return null;
+        const found = d.clicksLast7Days.find((x) => x.date === selectedDate);
+        return found?.count ?? 0;
+    }, [d.clicksLast7Days, selectedDate]);
 
     const filteredEvents = useMemo(() => {
-        if (!selectedDate) return d.recentEvents;
-        return d.recentEvents.filter((e) => e.clickedAt.slice(0, 10) === selectedDate);
+        const events = d.recentEvents
+            .slice()
+            .sort((a, b) => +new Date(b.clickedAt) - +new Date(a.clickedAt));
+
+        if (!selectedDate) return events;
+        return events.filter((e) => e.clickedAt.slice(0, 10) === selectedDate);
     }, [d.recentEvents, selectedDate]);
 
     async function copy(text: string) {
@@ -163,8 +160,13 @@ export default function LinkDetailsPage() {
         } catch {}
     }
 
+    function selectDay(date: string) {
+        setSelectedDate((prev) => (prev === date ? null : date));
+        setTab("events"); // jump to events automatically (matches your request)
+    }
+
     return (
-        <div className="min-h-screen w-full bg-[#070A12] text-white">
+        <>
             {/* background */}
             <div className="pointer-events-none fixed inset-0 overflow-hidden">
                 <div className="absolute left-1/2 top-[-240px] h-[520px] w-[720px] -translate-x-1/2 rounded-full bg-gradient-to-r from-indigo-500/20 via-fuchsia-500/20 to-cyan-400/20 blur-3xl sm:h-[620px] sm:w-[920px] 2xl:h-[720px] 2xl:w-[1100px]" />
@@ -246,17 +248,13 @@ export default function LinkDetailsPage() {
                         <div className="flex items-start justify-between gap-3">
                             <div>
                                 <div className="text-xs font-semibold tracking-wider text-white/60 uppercase">QR Code</div>
-                                <div className="mt-1 text-sm text-white/65">
-                                    {d.qrEnabled ? "Scan to open the short link" : "No QR for this link"}
-                                </div>
+                                <div className="mt-1 text-sm text-white/65">{d.qrEnabled ? "Scan to open the short link" : "No QR for this link"}</div>
                             </div>
 
                             <span
                                 className={clsx(
                                     "rounded-full px-3 py-1 text-xs font-semibold ring-1",
-                                    d.qrEnabled
-                                        ? "bg-emerald-400/10 ring-emerald-400/20 text-emerald-300"
-                                        : "bg-white/5 ring-white/10 text-white/70"
+                                    d.qrEnabled ? "bg-emerald-400/10 ring-emerald-400/20 text-emerald-300" : "bg-white/5 ring-white/10 text-white/70"
                                 )}
                             >
                 {d.qrEnabled ? "Enabled" : "Disabled"}
@@ -269,9 +267,7 @@ export default function LinkDetailsPage() {
                                     <img src={d.qrUrl} alt="QR Code" className="h-48 w-48" />
                                 </div>
                             ) : (
-                                <div className="rounded-2xl border border-white/10 bg-white/5 p-4 text-sm text-white/65">
-                                    QR is not available for this link.
-                                </div>
+                                <div className="rounded-2xl border border-white/10 bg-white/5 p-4 text-sm text-white/65">QR is not available for this link.</div>
                             )}
                         </div>
 
@@ -309,7 +305,7 @@ export default function LinkDetailsPage() {
                                     Clear filter ({selectedDate})
                                 </button>
                             ) : (
-                                <div className="text-sm text-white/60">Hover bars • Click to filter events</div>
+                                <div className="text-sm text-white/60">Hover bars • Click to open events</div>
                             )}
                         </div>
                     </div>
@@ -322,20 +318,14 @@ export default function LinkDetailsPage() {
                                     <div className="flex items-end justify-between gap-3">
                                         <div>
                                             <div className="text-sm font-semibold">Clicks (last 7 days)</div>
-                                            <div className="mt-1 text-sm text-white/60">
-                                                Click a day to filter events in the Events tab.
-                                            </div>
+                                            <div className="mt-1 text-sm text-white/60">Click a bar to open Click events filtered by that date.</div>
                                         </div>
                                         <div className="text-sm text-white/60">
-                                            Total:{" "}
-                                            <span className="font-semibold text-white/80">
-                        {d.clicksLast7Days.reduce((s, x) => s + x.count, 0)}
-                      </span>
+                                            Total: <span className="font-semibold text-white/80">{totalLast7}</span>
                                         </div>
                                     </div>
 
                                     <div className="relative mt-4 rounded-2xl bg-white/5 p-4 ring-1 ring-white/10">
-                                        {/* tooltip */}
                                         {tooltip.show && (
                                             <div
                                                 className="pointer-events-none absolute z-10 rounded-2xl bg-[#0B1022]/95 px-3 py-2 text-xs text-white ring-1 ring-white/10"
@@ -358,27 +348,16 @@ export default function LinkDetailsPage() {
                                                     <button
                                                         key={x.date}
                                                         type="button"
-                                                        onClick={() => setSelectedDate((v) => (v === x.date ? null : x.date))}
-                                                        onMouseEnter={(e) => {
-                                                            const r = (e.currentTarget as HTMLButtonElement).getBoundingClientRect();
-                                                            setTooltip({
-                                                                show: true,
-                                                                x: r.left - r.left + 0,
-                                                                y: 0,
-                                                                date: x.date,
-                                                                count: x.count,
-                                                            });
-                                                        }}
+                                                        onClick={() => selectDay(x.date)}
                                                         onMouseMove={(e) => {
                                                             const host = (e.currentTarget.parentElement as HTMLElement).getBoundingClientRect();
-                                                            setTooltip((t) => ({
-                                                                ...t,
+                                                            setTooltip({
                                                                 show: true,
                                                                 x: e.clientX - host.left,
                                                                 y: e.clientY - host.top,
                                                                 date: x.date,
                                                                 count: x.count,
-                                                            }));
+                                                            });
                                                         }}
                                                         onMouseLeave={() => setTooltip((t) => ({ ...t, show: false }))}
                                                         className="group flex flex-col items-center gap-2 outline-none"
@@ -399,17 +378,15 @@ export default function LinkDetailsPage() {
 
                                         {selectedDate && (
                                             <div className="mt-4 text-sm text-white/60">
-                                                Filter active: <span className="font-semibold text-white/80">{selectedDate}</span>
+                                                Selected: <span className="font-semibold text-white/80">{formatDayPretty(selectedDate)}</span> •{" "}
+                                                <span className="font-semibold text-white/80">{selectedDayCount ?? 0}</span> clicks
                                             </div>
                                         )}
                                     </div>
 
                                     <div className="mt-4 grid gap-3 sm:grid-cols-3">
                                         <Mini title="Best day" value={`${Math.max(...d.clicksLast7Days.map((x) => x.count))} clicks`} />
-                                        <Mini
-                                            title="Average/day"
-                                            value={`${Math.round(d.clicksLast7Days.reduce((s, x) => s + x.count, 0) / 7)}`}
-                                        />
+                                        <Mini title="Average/day" value={`${Math.round(totalLast7 / 7)}`} />
                                         <Mini title="Short URL" value={truncateMiddle(d.shortUrl, 26)} />
                                     </div>
                                 </div>
@@ -419,9 +396,7 @@ export default function LinkDetailsPage() {
                                     <div className="text-sm font-semibold">Top referrers</div>
                                     <div className="mt-4 space-y-2">
                                         {d.topReferrers.length === 0 ? (
-                                            <div className="rounded-2xl border border-white/10 bg-white/5 p-4 text-sm text-white/65">
-                                                No referrers yet.
-                                            </div>
+                                            <div className="rounded-2xl border border-white/10 bg-white/5 p-4 text-sm text-white/65">No referrers yet.</div>
                                         ) : (
                                             d.topReferrers.map((r) => (
                                                 <div key={r.referrer} className="rounded-2xl bg-white/5 p-4 ring-1 ring-white/10">
@@ -438,48 +413,82 @@ export default function LinkDetailsPage() {
                                 </div>
                             </div>
                         ) : (
-                            <div className="overflow-hidden rounded-2xl ring-1 ring-white/10">
-                                <div className="border-b border-white/10 bg-white/5 px-4 py-3 text-sm text-white/60">
-                                    Showing {filteredEvents.length} recent events
-                                    {selectedDate ? ` for ${selectedDate}` : ""}.
+                            <>
+                                {/* events header - MUST SHOW SELECTED DATE INFO */}
+                                <div className="mb-4 rounded-2xl bg-white/5 p-4 ring-1 ring-white/10">
+                                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                                        <div>
+                                            <div className="text-xs font-semibold tracking-wider text-white/60 uppercase">Click events</div>
+                                            <div className="mt-1 text-sm text-white/80">
+                                                {selectedDate ? (
+                                                    <>
+                                                        Showing events for{" "}
+                                                        <span className="font-semibold text-white">{formatDayPretty(selectedDate)}</span>{" "}
+                                                        <span className="text-white/60">({selectedDayCount ?? 0} clicks)</span>
+                                                    </>
+                                                ) : (
+                                                    <>No date selected. Click a bar in Overview to filter.</>
+                                                )}
+                                            </div>
+                                        </div>
+
+                                        {selectedDate && (
+                                            <button
+                                                type="button"
+                                                onClick={() => setSelectedDate(null)}
+                                                className="rounded-2xl bg-white px-4 py-2.5 text-sm font-semibold text-[#070A12] hover:bg-white/90"
+                                            >
+                                                Clear date
+                                            </button>
+                                        )}
+                                    </div>
                                 </div>
 
-                                <div className="overflow-x-auto">
-                                    <table className="min-w-full text-left">
-                                        <thead className="bg-white/5">
-                                        <tr className="text-xs font-semibold uppercase tracking-wider text-white/50">
-                                            <th className="px-4 py-3">Time</th>
-                                            <th className="px-4 py-3">Referrer</th>
-                                            <th className="px-4 py-3">UA</th>
-                                        </tr>
-                                        </thead>
-                                        <tbody className="divide-y divide-white/10">
-                                        {filteredEvents.map((e) => (
-                                            <tr key={e.id} className="hover:bg-white/5 transition">
-                                                <td className="px-4 py-3 text-sm text-white/75 whitespace-nowrap">
-                                                    {formatDateTime(e.clickedAt)}
-                                                </td>
-                                                <td className="px-4 py-3 text-sm text-white/75">{e.referrer || "Direct"}</td>
-                                                <td className="px-4 py-3 text-sm text-white/65">{e.ua}</td>
+                                <div className="overflow-hidden rounded-2xl ring-1 ring-white/10">
+                                    <div className="border-b border-white/10 bg-white/5 px-4 py-3 text-sm text-white/60">
+                                        Showing <span className="font-semibold text-white/80">{filteredEvents.length}</span> events
+                                        {selectedDate ? ` for ${selectedDate}` : ""}.
+                                    </div>
+
+                                    <div className="overflow-x-auto">
+                                        <table className="min-w-full text-left">
+                                            <thead className="bg-white/5">
+                                            <tr className="text-xs font-semibold uppercase tracking-wider text-white/50">
+                                                <th className="px-4 py-3">Time</th>
+                                                <th className="px-4 py-3">Referrer</th>
+                                                <th className="px-4 py-3">UA</th>
                                             </tr>
-                                        ))}
-                                        </tbody>
-                                    </table>
-                                </div>
+                                            </thead>
+                                            <tbody className="divide-y divide-white/10">
+                                            {filteredEvents.map((e) => (
+                                                <tr key={e.id} className="hover:bg-white/5 transition">
+                                                    <td className="px-4 py-3 text-sm text-white/75 whitespace-nowrap">{formatDateTime(e.clickedAt)}</td>
+                                                    <td className="px-4 py-3 text-sm text-white/75">{e.referrer || "Direct"}</td>
+                                                    <td className="px-4 py-3 text-sm text-white/65">{e.ua}</td>
+                                                </tr>
+                                            ))}
 
-                                <div className="border-t border-white/10 bg-white/5 px-4 py-3 text-sm text-white/60">
-                                    Tip: click a bar in Overview to filter by day.
+                                            {filteredEvents.length === 0 && (
+                                                <tr>
+                                                    <td colSpan={3} className="px-4 py-10 text-center text-sm text-white/60">
+                                                        No events for this date.
+                                                    </td>
+                                                </tr>
+                                            )}
+                                            </tbody>
+                                        </table>
+                                    </div>
+
+                                    <div className="border-t border-white/10 bg-white/5 px-4 py-3 text-sm text-white/60">
+                                        Tip: select another day from Overview to update this list.
+                                    </div>
                                 </div>
-                            </div>
+                            </>
                         )}
                     </div>
                 </section>
-
-                <footer className="mt-14 border-t border-white/10 pt-8">
-                    <div className="text-sm text-white/60">© 2026 UrlShortener</div>
-                </footer>
             </div>
-        </div>
+        </>
     );
 }
 
