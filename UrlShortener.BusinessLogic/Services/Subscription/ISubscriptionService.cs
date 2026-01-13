@@ -1,0 +1,17 @@
+using UrlShortener.BusinessLogic.DTOs;
+using UrlShortener.BusinessLogic.Wrappers;
+
+namespace UrlShortener.BusinessLogic.Services.Subscription;
+
+public interface ISubscriptionService
+{
+    Task<ServiceResponse<List<SubscriptionDto>>> GetAllAsync(CancellationToken ct = default);
+    Task<ServiceResponse<SubscriptionDto>> GetByIdAsync(Guid id, CancellationToken ct = default);
+    Task<ServiceResponse<SubscriptionDto>> CreateAsync(SubscriptionDto subscriptionDto, CancellationToken ct = default);
+    Task<ServiceResponse<SubscriptionDto>> UpdateAsync(SubscriptionDto subscriptionDto, CancellationToken ct = default);
+    Task<ServiceResponse<List<SubscriptionDto>>> GetByUserIdAsync(Guid userId, CancellationToken ct = default);
+    Task<ServiceResponse<SubscriptionDto>> GetActiveForUserAsync(Guid userId, CancellationToken ct = default);
+    Task<ServiceResponse> DeleteAsync(Guid id, CancellationToken ct = default);
+    Task<ServiceResponse> ActivateAsync(Guid id, CancellationToken ct = default);
+    Task<ServiceResponse> DeactivateAsync(Guid id, CancellationToken ct = default);
+}
