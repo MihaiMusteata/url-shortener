@@ -31,7 +31,7 @@ public class ShortLinksController : ControllerBase
 
         return Ok(res.Data);
     }
-    
+
     [HttpGet("{id:guid}")]
     public async Task<IActionResult> GetDetails([FromRoute] Guid id, CancellationToken ct)
     {
@@ -50,5 +50,26 @@ public class ShortLinksController : ControllerBase
         }
 
         return Ok(res.Data);
+    }
+
+    [HttpDelete("{id:guid}")]
+    public async Task<IActionResult> Delete([FromRoute] Guid id, CancellationToken ct)
+    {
+        var userId = _current.GetUserId();
+        var res = await _shortLinks.DeleteAsync(userId, id, ct);
+
+        if (!res.Success)
+        {
+            return res.Message switch
+            {
+                "Unauthorized." => Unauthorized(res.Message),
+                "Forbidden." => Forbid(),
+                "Link not found." => NotFound(res.Message),
+                "Invalid link id." => BadRequest(res.Message),
+                _ => BadRequest(res.Message)
+            };
+        }
+
+        return Ok(res.Message);
     }
 }

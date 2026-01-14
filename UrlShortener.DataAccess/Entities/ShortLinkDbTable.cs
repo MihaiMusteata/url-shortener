@@ -1,6 +1,6 @@
 namespace UrlShortener.DataAccess.Entities;
 
-public class ShortLinkDbTable
+public class ShortLinkDbTable : ISoftDeletable
 {
     public Guid Id { get; set; }
     public Guid UserId { get; set; }
@@ -13,6 +13,8 @@ public class ShortLinkDbTable
     public UserDbTable? User { get; set; }
     public QrCodeDbTable? QrCode { get; set; }
     public ICollection<LinkClickDbTable> LinkClicks { get; set; } = new List<LinkClickDbTable>();
+    public bool IsDeleted { get; set; }
+    public DateTime? DeletedAtUtc { get; set; }
 }
 
 public class DailyClicksDto

@@ -24,6 +24,7 @@ public class ShortLinkRepository : IShortLinkRepository
     {
         return _db.ShortLinks
             .AsNoTracking()
+            .IgnoreQueryFilters()
             .Where(x => x.UserId == userId && x.CreatedAt.Year == year && x.CreatedAt.Month == month)
             .CountAsync(ct);
     }
@@ -45,4 +46,16 @@ public class ShortLinkRepository : IShortLinkRepository
 
     public Task<ShortLinkDbTable?> GetByShortCodeAsync(string shortCode, CancellationToken ct)
         => _db.ShortLinks.FirstOrDefaultAsync(x => x.ShortCode == shortCode, ct);
+    
+    
+    public void SoftDelete(ShortLinkDbTable entity)
+    {
+        entity.IsDeleted = true;
+        entity.DeletedAtUtc = DateTime.UtcNow;
+        entity.IsActive = false;
+        _db.ShortLinks.Update(entity);
+    }
+
+    public Task<ShortLinkDbTable?> GetByIdAsync(Guid id, CancellationToken ct = default)
+        => _db.ShortLinks.FirstOrDefaultAsync(x => x.Id == id, ct);
 }

@@ -455,6 +455,57 @@ public class ShortLinkService : IShortLinkService
 
         return mobile ? $"{browser} • {os} • Mobile" : $"{browser} • {os}";
     }
+    
+    public async Task<ServiceResponse> DeleteAsync(Guid userId, Guid shortLinkId, CancellationToken ct = default)
+    {
+        if (userId == Guid.Empty)
+        {
+            _logger.LogWarning("Delete short link failed: unauthorized (empty userId).");
+            return ServiceResponse.Fail("Unauthorized.");
+        }
+
+        if (shortLinkId == Guid.Empty)
+        {
+            _logger.LogWarning("Delete short link failed: invalid link id (empty). UserId={UserId}", userId);
+            return ServiceResponse.Fail("Invalid link id.");
+        }
+
+        var entity = await _shortLinks.GetByIdAsync(shortLinkId, ct);
+        if (entity is null)
+        {
+            _logger.LogWarning("Delete short link failed: link not found. UserId={UserId}, LinkId={LinkId}",
+                userId, shortLinkId);
+            return ServiceResponse.Fail("Link not found.");
+        }
+
+        if (entity.UserId != userId)
+        {
+            _logger.LogWarning("Delete short link forbidden. UserId={UserId}, LinkId={LinkId}, OwnerUserId={OwnerUserId}",
+                userId, shortLinkId, entity.UserId);
+            return ServiceResponse.Fail("Forbidden.");
+        }
+
+        try
+        {
+            _shortLinks.SoftDelete(entity);
+            await _shortLinks.SaveChangesAsync(ct);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error soft deleting short link. UserId={UserId}, LinkId={LinkId}",
+                userId, shortLinkId);
+            return ServiceResponse.Fail("Error deleting short link.");
+        }
+
+        _cache.Remove(CacheKey_Details(shortLinkId));
+        _cache.Remove(CacheKey_Resolve(entity.ShortCode));
+        _profileService.InvalidateProfileCache(userId);
+
+        _logger.LogInformation("Short link soft deleted. UserId={UserId}, LinkId={LinkId}, Alias={Alias}",
+            userId, shortLinkId, entity.ShortCode);
+
+        return ServiceResponse.Ok("Link deleted.");
+    }
 
     private string BuildShortUrl(string code)
     {

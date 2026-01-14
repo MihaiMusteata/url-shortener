@@ -40,5 +40,8 @@ public class AppDbContext : DbContext
             .HasOne(x => x.Plan)
             .WithMany(x => x.Subscriptions)
             .HasForeignKey(x => x.PlanId);
+        
+        modelBuilder.Entity<ShortLinkDbTable>()
+            .HasQueryFilter(x => !x.IsDeleted);
     }
 }
