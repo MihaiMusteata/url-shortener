@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Configuration;
 using UrlShortener.BusinessLogic.DTOs;
 using UrlShortener.BusinessLogic.Wrappers;
@@ -12,24 +13,36 @@ public class ProfileService : IProfileService
     private readonly IUserRepository _users;
     private readonly ISubscriptionRepository _subs;
     private readonly IShortLinkRepository _shortLinks;
+    private readonly IMemoryCache _cache;
     private readonly string _baseShortDomain;
+
+    private static string CacheKey_Profile(Guid userId) => $"profile:me:{userId}";
 
     public ProfileService(
         IUserRepository users,
         ISubscriptionRepository subs,
         IShortLinkRepository shortLinks,
+        IMemoryCache cache,
         IConfiguration cfg)
     {
         _users = users;
         _subs = subs;
         _shortLinks = shortLinks;
+        _cache = cache;
         _baseShortDomain = cfg["ShortLinks:BaseUrl"] ?? "http://localhost:5093";
     }
 
-    public async Task<ServiceResponse<ProfilePageDto>> GetMyProfileAsync(Guid userId, CancellationToken ct = default)
+    public async Task<ServiceResponse<ProfilePageDto>> GetMyProfileAsync(
+        Guid userId,
+        CancellationToken ct = default)
     {
         if (userId == Guid.Empty)
             return ServiceResponse<ProfilePageDto>.Fail("Unauthorized.");
+
+        var cacheKey = CacheKey_Profile(userId);
+
+        if (_cache.TryGetValue(cacheKey, out ProfilePageDto? cachedDto) && cachedDto is not null)
+            return ServiceResponse<ProfilePageDto>.Ok(cachedDto);
 
         var user = await _users.GetByIdAsync(userId, ct);
         if (user is null)
@@ -42,7 +55,12 @@ public class ProfileService : IProfileService
         var plan = activeSub.Plan;
 
         var now = DateTime.UtcNow;
-        var linksCreatedThisMonth = await _shortLinks.CountCreatedByUserInMonthAsync(userId, now.Year, now.Month, ct);
+        var linksCreatedThisMonth =
+            await _shortLinks.CountCreatedByUserInMonthAsync(
+                userId,
+                now.Year,
+                now.Month,
+                ct);
 
         var links = await _shortLinks.GetByUserIdAsync(userId, ct);
 
@@ -81,6 +99,12 @@ public class ProfileService : IProfileService
             }).ToList()
         };
 
+        var cacheOptions = new MemoryCacheEntryOptions()
+            .SetAbsoluteExpiration(TimeSpan.FromMinutes(2))
+            .SetSlidingExpiration(TimeSpan.FromMinutes(1));
+
+        _cache.Set(cacheKey, dto, cacheOptions);
+
         return ServiceResponse<ProfilePageDto>.Ok(dto);
     }
 
@@ -88,6 +112,15 @@ public class ProfileService : IProfileService
     {
         if (_baseShortDomain.EndsWith("/"))
             return _baseShortDomain + code;
+
         return _baseShortDomain + "/" + code;
+    }
+
+    public void InvalidateProfileCache(Guid userId)
+    {
+        if (userId == Guid.Empty)
+            return;
+
+        _cache.Remove(CacheKey_Profile(userId));
     }
 }

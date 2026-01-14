@@ -1,7 +1,8 @@
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Configuration;
 using UrlShortener.BusinessLogic.DTOs;
 using UrlShortener.BusinessLogic.Helpers;
-using UrlShortener.BusinessLogic.Services.ShortLink;
+using UrlShortener.BusinessLogic.Services.Profile;
 using UrlShortener.BusinessLogic.Wrappers;
 using UrlShortener.DataAccess.Entities;
 using UrlShortener.DataAccess.Repositories.ShortLink;
@@ -13,19 +14,34 @@ public class ShortLinkService : IShortLinkService
 {
     private readonly IShortLinkRepository _shortLinks;
     private readonly ISubscriptionRepository _subs;
+    private readonly IProfileService _profileService;
+    private readonly IMemoryCache _cache;
 
     private readonly string _baseShortDomain;
+
     private const string DirectReferrer = "Direct";
 
-    public ShortLinkService(IShortLinkRepository shortLinks, ISubscriptionRepository subs, IConfiguration cfg)
+    private static string CacheKey_Details(Guid linkId) => $"shortlink:details:{linkId}";
+    private static string CacheKey_Resolve(string alias) => $"shortlink:resolve:{alias.ToLowerInvariant()}";
+
+    public ShortLinkService(
+        IShortLinkRepository shortLinks,
+        ISubscriptionRepository subs,
+        IProfileService profileService,
+        IMemoryCache cache,
+        IConfiguration cfg)
     {
         _shortLinks = shortLinks;
         _subs = subs;
+        _profileService = profileService;
+        _cache = cache;
         _baseShortDomain = cfg["ShortLinks:BaseUrl"] ?? "http://localhost:5093";
     }
 
-    public async Task<ServiceResponse<ShortLinkCreateResponseDto>> CreateAsync(Guid userId,
-        ShortLinkCreateRequestDto req, CancellationToken ct = default)
+    public async Task<ServiceResponse<ShortLinkCreateResponseDto>> CreateAsync(
+        Guid userId,
+        ShortLinkCreateRequestDto req,
+        CancellationToken ct = default)
     {
         if (userId == Guid.Empty)
             return ServiceResponse<ShortLinkCreateResponseDto>.Fail("Unauthorized.");
@@ -33,14 +49,12 @@ public class ShortLinkService : IShortLinkService
         if (!UrlUtils.TryNormalizeHttpUrl(req.Url, out var normalized))
             return ServiceResponse<ShortLinkCreateResponseDto>.Fail("Invalid URL.");
 
-        // plan (active subscription)
         var activeSub = await _subs.GetActiveByUserIdAsync(userId, ct);
         if (activeSub?.Plan is null)
             return ServiceResponse<ShortLinkCreateResponseDto>.Fail("Upgrade required: No active plan.");
 
         var plan = activeSub.Plan;
 
-        // monthly limit
         var now = DateTime.UtcNow;
         var createdCount = await _shortLinks.CountCreatedByUserInMonthAsync(userId, now.Year, now.Month, ct);
         if (createdCount >= plan.MaxLinksPerMonth)
@@ -49,7 +63,6 @@ public class ShortLinkService : IShortLinkService
                 $"Upgrade required: You reached the monthly limit ({plan.MaxLinksPerMonth} links/month).");
         }
 
-        // permissions: custom alias
         string shortCode;
         if (!string.IsNullOrWhiteSpace(req.CustomAlias))
         {
@@ -68,7 +81,6 @@ public class ShortLinkService : IShortLinkService
         }
         else
         {
-            // generate unique
             shortCode = ShortCodeGenerator.Generate(7);
             for (var i = 0; i < 10; i++)
             {
@@ -81,7 +93,6 @@ public class ShortLinkService : IShortLinkService
                     "Could not generate a unique alias. Try again.");
         }
 
-        // permissions: QR
         var wantQr = req.EnableQr;
         if (wantQr && !plan.QrEnabled)
             return ServiceResponse<ShortLinkCreateResponseDto>.Fail(
@@ -121,6 +132,15 @@ public class ShortLinkService : IShortLinkService
             return ServiceResponse<ShortLinkCreateResponseDto>.Fail($"Error creating short link: {ex.Message}");
         }
 
+        _profileService.InvalidateProfileCache(userId);
+
+        _cache.Set(
+            CacheKey_Resolve(entity.ShortCode),
+            entity.OriginalUrl,
+            new MemoryCacheEntryOptions()
+                .SetAbsoluteExpiration(TimeSpan.FromMinutes(10))
+                .SetSlidingExpiration(TimeSpan.FromMinutes(2)));
+
         var resp = new ShortLinkCreateResponseDto
         {
             Alias = entity.ShortCode,
@@ -139,6 +159,13 @@ public class ShortLinkService : IShortLinkService
 
         if (shortLinkId == Guid.Empty)
             return ServiceResponse<ShortLinkDetailsDto>.Fail("Invalid link id.");
+
+        var detailsKey = CacheKey_Details(shortLinkId);
+
+        if (_cache.TryGetValue(detailsKey, out ShortLinkDetailsDto? cached) && cached is not null)
+        {
+            return ServiceResponse<ShortLinkDetailsDto>.Ok(cached);
+        }
 
         var entity = await _shortLinks.GetByIdWithDetailsAsync(shortLinkId, ct);
         if (entity is null)
@@ -194,9 +221,6 @@ public class ShortLinkService : IShortLinkService
             })
             .ToList();
 
-        var qrEnabled = entity.QrCode is not null;
-        var qrUrl = entity.QrCode?.FileUrl;
-
         var shortUrl = BuildShortUrl(entity.ShortCode);
 
         var dto = new ShortLinkDetailsDto
@@ -205,9 +229,9 @@ public class ShortLinkService : IShortLinkService
             Alias = entity.ShortCode,
             ShortUrl = shortUrl,
             OriginalUrl = entity.OriginalUrl,
-            CreatedAt = entity.CreatedAt, // ai spus că ai adăugat CreatedAt
-            QrEnabled = qrEnabled,
-            QrUrl = qrUrl,
+            CreatedAt = entity.CreatedAt,
+            QrEnabled = entity.QrCode is not null,
+            QrUrl = entity.QrCode?.FileUrl,
 
             TotalClicks = entity.TotalClicks,
             UniqueReferrers = uniqueReferrers,
@@ -217,8 +241,15 @@ public class ShortLinkService : IShortLinkService
             RecentEvents = recent
         };
 
+        _cache.Set(
+            detailsKey,
+            dto,
+            new MemoryCacheEntryOptions()
+                .SetAbsoluteExpiration(TimeSpan.FromSeconds(30)));
+
         return ServiceResponse<ShortLinkDetailsDto>.Ok(dto);
     }
+
     public async Task<ServiceResponse<string>> ResolveAndTrackAsync(
         string alias,
         string? referrer,
@@ -231,6 +262,10 @@ public class ShortLinkService : IShortLinkService
 
         if (!UrlUtils.IsValidAlias(alias))
             return ServiceResponse<string>.Fail("Invalid alias.");
+
+        var resolveKey = CacheKey_Resolve(alias);
+
+        _ = _cache.TryGetValue(resolveKey, out string? cachedOriginalUrl);
 
         var entity = await _shortLinks.GetByShortCodeAsync(alias, ct);
         if (entity is null)
@@ -259,6 +294,17 @@ public class ShortLinkService : IShortLinkService
         {
             return ServiceResponse<string>.Fail($"Error tracking click: {ex.Message}");
         }
+
+        _cache.Set(
+            resolveKey,
+            entity.OriginalUrl,
+            new MemoryCacheEntryOptions()
+                .SetAbsoluteExpiration(TimeSpan.FromMinutes(10))
+                .SetSlidingExpiration(TimeSpan.FromMinutes(2)));
+
+        _cache.Remove(CacheKey_Details(entity.Id));
+
+        _profileService.InvalidateProfileCache(entity.UserId);
 
         return ServiceResponse<string>.Ok(entity.OriginalUrl);
     }

@@ -25,6 +25,7 @@ public static class DependencyInjection
         services.AddScoped<ISubscriptionService, SubscriptionService>();
         services.AddScoped<IProfileService, ProfileService>();
         services.AddScoped<IShortLinkService, ShortLinkService>();
+        services.AddMemoryCache();
         
         return services;
     }
