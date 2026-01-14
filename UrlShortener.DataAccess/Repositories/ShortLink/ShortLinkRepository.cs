@@ -42,4 +42,7 @@ public class ShortLinkRepository : IShortLinkRepository
             .Include(x => x.QrCode)
             .Include(x => x.LinkClicks)
             .FirstOrDefaultAsync(x => x.Id == id, ct);
+
+    public Task<ShortLinkDbTable?> GetByShortCodeAsync(string shortCode, CancellationToken ct)
+        => _db.ShortLinks.FirstOrDefaultAsync(x => x.ShortCode == shortCode, ct);
 }

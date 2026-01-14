@@ -21,7 +21,7 @@ public class ShortLinkService : IShortLinkService
     {
         _shortLinks = shortLinks;
         _subs = subs;
-        _baseShortDomain = cfg["ShortLinks:BaseUrl"] ?? "https://sho.rt";
+        _baseShortDomain = cfg["ShortLinks:BaseUrl"] ?? "http://localhost:5093";
     }
 
     public async Task<ServiceResponse<ShortLinkCreateResponseDto>> CreateAsync(Guid userId,
@@ -218,6 +218,49 @@ public class ShortLinkService : IShortLinkService
         };
 
         return ServiceResponse<ShortLinkDetailsDto>.Ok(dto);
+    }
+    public async Task<ServiceResponse<string>> ResolveAndTrackAsync(
+        string alias,
+        string? referrer,
+        string? userAgent,
+        string? ip,
+        CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(alias))
+            return ServiceResponse<string>.Fail("Invalid alias.");
+
+        if (!UrlUtils.IsValidAlias(alias))
+            return ServiceResponse<string>.Fail("Invalid alias.");
+
+        var entity = await _shortLinks.GetByShortCodeAsync(alias, ct);
+        if (entity is null)
+            return ServiceResponse<string>.Fail("Link not found.");
+
+        if (!entity.IsActive)
+            return ServiceResponse<string>.Fail("Link inactive.");
+
+        entity.TotalClicks += 1;
+
+        var click = new LinkClickDbTable
+        {
+            ShortLinkId = entity.Id,
+            ClickedAt = DateTime.UtcNow,
+            Referer = referrer ?? "",
+            UserAgent = userAgent ?? "",
+        };
+
+        entity.LinkClicks.Add(click);
+
+        try
+        {
+            await _shortLinks.SaveChangesAsync(ct);
+        }
+        catch (Exception ex)
+        {
+            return ServiceResponse<string>.Fail($"Error tracking click: {ex.Message}");
+        }
+
+        return ServiceResponse<string>.Ok(entity.OriginalUrl);
     }
 
     private static string NormalizeReferrer(string? raw)

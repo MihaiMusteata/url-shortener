@@ -23,7 +23,7 @@ public class ProfileService : IProfileService
         _users = users;
         _subs = subs;
         _shortLinks = shortLinks;
-        _baseShortDomain = cfg["ShortLinks:BaseUrl"] ?? "https://sho.rt";
+        _baseShortDomain = cfg["ShortLinks:BaseUrl"] ?? "http://localhost:5093";
     }
 
     public async Task<ServiceResponse<ProfilePageDto>> GetMyProfileAsync(Guid userId, CancellationToken ct = default)

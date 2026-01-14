@@ -10,4 +10,5 @@ public interface IShortLinkRepository
     Task AddAsync(ShortLinkDbTable entity, CancellationToken ct = default);
     Task<int> SaveChangesAsync(CancellationToken ct = default);
     Task<ShortLinkDbTable?> GetByIdWithDetailsAsync(Guid id, CancellationToken ct = default);
+    Task<ShortLinkDbTable?> GetByShortCodeAsync(string shortCode, CancellationToken ct);
 }
