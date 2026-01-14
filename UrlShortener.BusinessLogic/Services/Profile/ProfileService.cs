@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 using UrlShortener.BusinessLogic.DTOs;
 using UrlShortener.BusinessLogic.Wrappers;
 using UrlShortener.DataAccess.Repositories.ShortLink;
@@ -14,6 +15,7 @@ public class ProfileService : IProfileService
     private readonly ISubscriptionRepository _subs;
     private readonly IShortLinkRepository _shortLinks;
     private readonly IMemoryCache _cache;
+    private readonly ILogger<ProfileService> _logger;
     private readonly string _baseShortDomain;
 
     private static string CacheKey_Profile(Guid userId) => $"profile:me:{userId}";
@@ -23,12 +25,14 @@ public class ProfileService : IProfileService
         ISubscriptionRepository subs,
         IShortLinkRepository shortLinks,
         IMemoryCache cache,
+        ILogger<ProfileService> logger,
         IConfiguration cfg)
     {
         _users = users;
         _subs = subs;
         _shortLinks = shortLinks;
         _cache = cache;
+        _logger = logger;
         _baseShortDomain = cfg["ShortLinks:BaseUrl"] ?? "http://localhost:5093";
     }
 
@@ -37,20 +41,34 @@ public class ProfileService : IProfileService
         CancellationToken ct = default)
     {
         if (userId == Guid.Empty)
+        {
+            _logger.LogWarning("GetMyProfile failed: unauthorized (empty userId).");
             return ServiceResponse<ProfilePageDto>.Fail("Unauthorized.");
+        }
 
         var cacheKey = CacheKey_Profile(userId);
 
         if (_cache.TryGetValue(cacheKey, out ProfilePageDto? cachedDto) && cachedDto is not null)
+        {
+            _logger.LogDebug("Profile loaded from cache. UserId={UserId}", userId);
             return ServiceResponse<ProfilePageDto>.Ok(cachedDto);
+        }
+
+        _logger.LogInformation("Loading profile from database. UserId={UserId}", userId);
 
         var user = await _users.GetByIdAsync(userId, ct);
         if (user is null)
+        {
+            _logger.LogWarning("GetMyProfile failed: user not found. UserId={UserId}", userId);
             return ServiceResponse<ProfilePageDto>.Fail("User not found.");
+        }
 
         var activeSub = await _subs.GetActiveByUserIdAsync(userId, ct);
         if (activeSub?.Plan is null)
+        {
+            _logger.LogWarning("GetMyProfile failed: no active plan. UserId={UserId}", userId);
             return ServiceResponse<ProfilePageDto>.Fail("No active plan.");
+        }
 
         var plan = activeSub.Plan;
 
@@ -105,6 +123,13 @@ public class ProfileService : IProfileService
 
         _cache.Set(cacheKey, dto, cacheOptions);
 
+        _logger.LogInformation(
+            "Profile cached. UserId={UserId}, Links={LinksCount}, LinksCreatedThisMonth={LinksCreatedThisMonth}, Plan={PlanName}",
+            userId,
+            dto.Links.Count,
+            linksCreatedThisMonth,
+            plan.Name);
+
         return ServiceResponse<ProfilePageDto>.Ok(dto);
     }
 
@@ -119,8 +144,12 @@ public class ProfileService : IProfileService
     public void InvalidateProfileCache(Guid userId)
     {
         if (userId == Guid.Empty)
+        {
+            _logger.LogDebug("InvalidateProfileCache ignored: empty userId.");
             return;
+        }
 
         _cache.Remove(CacheKey_Profile(userId));
+        _logger.LogDebug("Profile cache invalidated. UserId={UserId}", userId);
     }
 }

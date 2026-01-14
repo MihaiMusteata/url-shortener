@@ -17,4 +17,10 @@
       <ProjectReference Include="..\UrlShortener.BusinessLogic\UrlShortener.BusinessLogic.csproj" />
     </ItemGroup>
 
+    <ItemGroup>
+        <None Update="nlog.config">
+            <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+        </None>
+    </ItemGroup>
+
 </Project>
