@@ -15,6 +15,7 @@ public class ShortLinkService : IShortLinkService
     private readonly ISubscriptionRepository _subs;
 
     private readonly string _baseShortDomain;
+    private const string DirectReferrer = "Direct";
 
     public ShortLinkService(IShortLinkRepository shortLinks, ISubscriptionRepository subs, IConfiguration cfg)
     {
@@ -130,9 +131,153 @@ public class ShortLinkService : IShortLinkService
         return ServiceResponse<ShortLinkCreateResponseDto>.Ok(resp);
     }
 
+    public async Task<ServiceResponse<ShortLinkDetailsDto>> GetDetailsAsync(Guid userId, Guid shortLinkId,
+        CancellationToken ct = default)
+    {
+        if (userId == Guid.Empty)
+            return ServiceResponse<ShortLinkDetailsDto>.Fail("Unauthorized.");
+
+        if (shortLinkId == Guid.Empty)
+            return ServiceResponse<ShortLinkDetailsDto>.Fail("Invalid link id.");
+
+        var entity = await _shortLinks.GetByIdWithDetailsAsync(shortLinkId, ct);
+        if (entity is null)
+            return ServiceResponse<ShortLinkDetailsDto>.Fail("Link not found.");
+
+        if (entity.UserId != userId)
+            return ServiceResponse<ShortLinkDetailsDto>.Fail("Forbidden.");
+
+        var todayUtc = DateTime.UtcNow.Date;
+        var fromUtc = todayUtc.AddDays(-6);
+
+        var clicksByDate = entity.LinkClicks
+            .Where(c => c.ClickedAt >= fromUtc && c.ClickedAt < todayUtc.AddDays(1))
+            .GroupBy(c => c.ClickedAt.Date)
+            .ToDictionary(g => g.Key, g => g.Count());
+
+        var clicksLast7 = new List<DailyClicksDto>(7);
+        for (var i = 0; i < 7; i++)
+        {
+            var day = fromUtc.AddDays(i);
+            clicksByDate.TryGetValue(day, out var count);
+            clicksLast7.Add(new DailyClicksDto
+            {
+                Date = day.ToString("yyyy-MM-dd"),
+                Count = count
+            });
+        }
+
+        var normalizedReferrers = entity.LinkClicks
+            .Select(c => NormalizeReferrer(c.Referer))
+            .ToList();
+
+        var uniqueReferrers = normalizedReferrers
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Count();
+
+        var topReferrers = normalizedReferrers
+            .GroupBy(x => x, StringComparer.OrdinalIgnoreCase)
+            .Select(g => new TopReferrerDto { Referrer = g.Key, Count = g.Count() })
+            .OrderByDescending(x => x.Count)
+            .Take(10)
+            .ToList();
+
+        var recent = entity.LinkClicks
+            .OrderByDescending(x => x.ClickedAt)
+            .Take(100)
+            .Select(x => new LinkClickEventDto
+            {
+                Id = x.Id,
+                ClickedAt = x.ClickedAt,
+                Referrer = NormalizeReferrer(x.Referer),
+                Ua = SummarizeUserAgent(x.UserAgent)
+            })
+            .ToList();
+
+        var qrEnabled = entity.QrCode is not null;
+        var qrUrl = entity.QrCode?.FileUrl;
+
+        var shortUrl = BuildShortUrl(entity.ShortCode);
+
+        var dto = new ShortLinkDetailsDto
+        {
+            Id = entity.Id,
+            Alias = entity.ShortCode,
+            ShortUrl = shortUrl,
+            OriginalUrl = entity.OriginalUrl,
+            CreatedAt = entity.CreatedAt, // ai spus că ai adăugat CreatedAt
+            QrEnabled = qrEnabled,
+            QrUrl = qrUrl,
+
+            TotalClicks = entity.TotalClicks,
+            UniqueReferrers = uniqueReferrers,
+
+            ClicksLast7Days = clicksLast7,
+            TopReferrers = topReferrers,
+            RecentEvents = recent
+        };
+
+        return ServiceResponse<ShortLinkDetailsDto>.Ok(dto);
+    }
+
+    private static string NormalizeReferrer(string? raw)
+    {
+        if (string.IsNullOrEmpty(raw))
+            return DirectReferrer;
+
+        if (Uri.TryCreate(raw, UriKind.Absolute, out var uri))
+        {
+            if (!string.IsNullOrEmpty(uri.Host))
+                return uri.Host;
+        }
+
+        var s = raw;
+        if (s.StartsWith("http://", StringComparison.OrdinalIgnoreCase))
+            s = s.Substring("http://".Length);
+        else if (s.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+            s = s.Substring("https://".Length);
+
+        var slashIdx = s.IndexOf('/');
+        if (slashIdx >= 0) s = s.Substring(0, slashIdx);
+
+        if (string.IsNullOrEmpty(s))
+            return DirectReferrer;
+
+        return s;
+    }
+
+    private static string SummarizeUserAgent(string? ua)
+    {
+        if (string.IsNullOrEmpty(ua))
+            return "Unknown";
+
+        var u = ua;
+
+        string browser =
+            u.Contains("Edg/", StringComparison.OrdinalIgnoreCase) ? "Edge" :
+            u.Contains("Chrome/", StringComparison.OrdinalIgnoreCase) &&
+            !u.Contains("Edg/", StringComparison.OrdinalIgnoreCase) ? "Chrome" :
+            u.Contains("Firefox/", StringComparison.OrdinalIgnoreCase) ? "Firefox" :
+            u.Contains("Safari/", StringComparison.OrdinalIgnoreCase) &&
+            !u.Contains("Chrome/", StringComparison.OrdinalIgnoreCase) ? "Safari" :
+            "Other";
+
+        string os =
+            u.Contains("Windows", StringComparison.OrdinalIgnoreCase) ? "Windows" :
+            u.Contains("Mac OS X", StringComparison.OrdinalIgnoreCase) ? "macOS" :
+            u.Contains("Android", StringComparison.OrdinalIgnoreCase) ? "Android" :
+            u.Contains("iPhone", StringComparison.OrdinalIgnoreCase) ||
+            u.Contains("iPad", StringComparison.OrdinalIgnoreCase) ? "iOS" :
+            u.Contains("Linux", StringComparison.OrdinalIgnoreCase) ? "Linux" :
+            "Other";
+
+        var mobile = u.Contains("Mobile", StringComparison.OrdinalIgnoreCase) || os is "Android" or "iOS";
+
+        return mobile ? $"{browser} • {os} • Mobile" : $"{browser} • {os}";
+    }
+
     private string BuildShortUrl(string code)
     {
-        // safe join
         if (_baseShortDomain.EndsWith("/"))
             return _baseShortDomain + code;
         return _baseShortDomain + "/" + code;

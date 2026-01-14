@@ -36,4 +36,10 @@ public class ShortLinkRepository : IShortLinkRepository
 
     public Task<int> SaveChangesAsync(CancellationToken ct = default)
         => _db.SaveChangesAsync(ct);
+
+    public Task<ShortLinkDbTable?> GetByIdWithDetailsAsync(Guid id, CancellationToken ct = default)
+        => _db.ShortLinks
+            .Include(x => x.QrCode)
+            .Include(x => x.LinkClicks)
+            .FirstOrDefaultAsync(x => x.Id == id, ct);
 }

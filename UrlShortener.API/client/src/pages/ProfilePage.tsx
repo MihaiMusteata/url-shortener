@@ -150,7 +150,7 @@ export default function ProfilePage() {
     }, [data?.links, query, sort]);
 
     function onOpenDetails(linkId: string) {
-        navigate(`/details?id=${encodeURIComponent(linkId)}`);
+        navigate(`/details/${encodeURIComponent(linkId)}`);
     }
 
     async function copy(text: string) {

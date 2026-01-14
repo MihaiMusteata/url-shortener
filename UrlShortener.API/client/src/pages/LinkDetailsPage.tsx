@@ -1,13 +1,15 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
+import { useParams } from "react-router-dom";
+import { api } from "../lib/api.ts";
 
-/** Minimal DTOs (service returns pre-processed stats) */
+// DTOs
 export type DailyClicksDto = {
     date: string; // YYYY-MM-DD
     count: number;
 };
 
 export type TopReferrerDto = {
-    referrer: string; // domain or "Direct"
+    referrer: string;
     count: number;
 };
 
@@ -15,7 +17,7 @@ export type LinkClickEventDto = {
     id: string;
     clickedAt: string; // ISO
     referrer: string; // domain or "Direct"
-    ua: string; // short UA summary (already processed server-side)
+    ua: string;
 };
 
 export type ShortLinkDetailsDto = {
@@ -23,65 +25,16 @@ export type ShortLinkDetailsDto = {
     alias: string;
     shortUrl: string;
     originalUrl: string;
-    createdAt: string; // ISO
+    createdAt: string;
     qrEnabled: boolean;
     qrUrl?: string;
 
     totalClicks: number;
     uniqueReferrers: number;
 
-    clicksLast7Days: DailyClicksDto[]; // already aggregated by day
-    topReferrers: TopReferrerDto[]; // already aggregated
-    recentEvents: LinkClickEventDto[]; // minimal, already normalized (can contain more than 7 days)
-};
-
-/** MOCK DATA (pre-processed like the service will return) */
-const mockDetails: ShortLinkDetailsDto = {
-    id: "a9f4c0be-6c48-4c95-b5c2-3d0d7a5b0e12",
-    alias: "rickroll",
-    shortUrl: "https://sho.rt/rickroll",
-    originalUrl: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
-    createdAt: "2026-01-10T09:22:00Z",
-    qrEnabled: true,
-    qrUrl: "https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=https%3A%2F%2Fsho.rt%2Frickroll",
-
-    totalClicks: 142,
-    uniqueReferrers: 6,
-
-    clicksLast7Days: [
-        { date: "2026-01-07", count: 9 },
-        { date: "2026-01-08", count: 18 },
-        { date: "2026-01-09", count: 21 },
-        { date: "2026-01-10", count: 40 },
-        { date: "2026-01-11", count: 26 },
-        { date: "2026-01-12", count: 17 },
-        { date: "2026-01-13", count: 11 },
-    ],
-
-    topReferrers: [
-        { referrer: "google.com", count: 54 },
-        { referrer: "twitter.com", count: 31 },
-        { referrer: "t.co", count: 19 },
-        { referrer: "facebook.com", count: 11 },
-        { referrer: "Direct", count: 27 },
-    ],
-
-    recentEvents: [
-        // 2026-01-13
-        { id: "e1", clickedAt: "2026-01-13T11:05:12Z", referrer: "google.com", ua: "Chrome • macOS" },
-        { id: "e2", clickedAt: "2026-01-13T10:44:02Z", referrer: "Direct", ua: "Safari • iOS • Mobile" },
-        { id: "e3", clickedAt: "2026-01-13T09:22:44Z", referrer: "twitter.com", ua: "Edge • Windows" },
-        { id: "e4", clickedAt: "2026-01-13T08:12:30Z", referrer: "google.com", ua: "Chrome • Android • Mobile" },
-
-        // 2026-01-12
-        { id: "e5", clickedAt: "2026-01-12T19:07:15Z", referrer: "t.co", ua: "Chrome • Android • Mobile" },
-        { id: "e6", clickedAt: "2026-01-12T18:51:33Z", referrer: "google.com", ua: "Firefox • Linux" },
-        { id: "e7", clickedAt: "2026-01-12T16:40:08Z", referrer: "Direct", ua: "Chrome • Windows" },
-
-        // 2026-01-11
-        { id: "e8", clickedAt: "2026-01-11T14:19:52Z", referrer: "facebook.com", ua: "Safari • macOS" },
-        { id: "e9", clickedAt: "2026-01-11T10:01:05Z", referrer: "twitter.com", ua: "Chrome • Windows" },
-    ],
+    clicksLast7Days: DailyClicksDto[];
+    topReferrers: TopReferrerDto[];
+    recentEvents: LinkClickEventDto[];
 };
 
 function clsx(...parts: Array<string | boolean | undefined | null>) {
@@ -121,8 +74,17 @@ function truncateMiddle(s: string, max = 68) {
     return `${s.slice(0, left)}...${s.slice(-right)}`;
 }
 
+async function fetchLinkDetails(id: string): Promise<ShortLinkDetailsDto> {
+    const res = await api.get<ShortLinkDetailsDto>(`/shortlinks/${id}`);
+    return res.data;
+}
+
 export default function LinkDetailsPage() {
-    const d = mockDetails;
+    const { id } = useParams<{ id: string }>();
+
+    const [data, setData] = useState<ShortLinkDetailsDto | null>(null);
+    const [busy, setBusy] = useState(true);
+    const [error, setError] = useState<string | null>(null);
 
     const [tab, setTab] = useState<"overview" | "events">("overview");
     const [selectedDate, setSelectedDate] = useState<string | null>(null);
@@ -135,53 +97,152 @@ export default function LinkDetailsPage() {
         count?: number;
     }>({ show: false, x: 0, y: 0 });
 
-    const maxDay = useMemo(() => Math.max(...d.clicksLast7Days.map((x) => x.count), 1), [d.clicksLast7Days]);
+    useEffect(() => {
+        if (!id) {
+            setError("Missing link id.");
+            setBusy(false);
+            return;
+        }
 
-    const totalLast7 = useMemo(() => d.clicksLast7Days.reduce((s, x) => s + x.count, 0), [d.clicksLast7Days]);
+        const controller = new AbortController();
+        setBusy(true);
+        setError(null);
+
+        fetchLinkDetails(id)
+            .then((dto) => {
+                setData(dto);
+            })
+            .catch((e) => {
+                const msg =
+                    e?.response?.data && typeof e.response.data === "string"
+                        ? e.response.data
+                        : e?.response?.data?.message || e?.message || "Failed to load link details.";
+                setError(msg);
+            })
+            .finally(() => setBusy(false));
+
+        return () => controller.abort();
+    }, [id]);
+
+    const d = data;
+
+    const maxDay = useMemo(() => {
+        if (!d?.clicksLast7Days?.length) return 1;
+        return Math.max(...d.clicksLast7Days.map((x) => x.count), 1);
+    }, [d?.clicksLast7Days]);
+
+    const totalLast7 = useMemo(() => {
+        if (!d?.clicksLast7Days?.length) return 0;
+        return d.clicksLast7Days.reduce((s, x) => s + x.count, 0);
+    }, [d?.clicksLast7Days]);
 
     const selectedDayCount = useMemo(() => {
-        if (!selectedDate) return null;
+        if (!d || !selectedDate) return null;
         const found = d.clicksLast7Days.find((x) => x.date === selectedDate);
         return found?.count ?? 0;
-    }, [d.clicksLast7Days, selectedDate]);
+    }, [d, selectedDate]);
 
     const filteredEvents = useMemo(() => {
+        if (!d) return [];
         const events = d.recentEvents
             .slice()
             .sort((a, b) => +new Date(b.clickedAt) - +new Date(a.clickedAt));
 
         if (!selectedDate) return events;
         return events.filter((e) => e.clickedAt.slice(0, 10) === selectedDate);
-    }, [d.recentEvents, selectedDate]);
+    }, [d, selectedDate]);
 
     async function copy(text: string) {
         try {
             await navigator.clipboard.writeText(text);
-        } catch {}
+        } catch {
+        }
     }
 
     function selectDay(date: string) {
         setSelectedDate((prev) => (prev === date ? null : date));
-        setTab("events"); // jump to events automatically (matches your request)
+        setTab("events");
     }
 
+    // ---- UI STATES ----
+    if (busy) {
+        return (
+            <div className="rounded-3xl bg-white/5 p-6 ring-1 ring-white/10">
+                <div className="text-sm font-semibold">Loading link details…</div>
+                <div className="mt-1 text-sm text-white/60">Fetching stats and events</div>
+            </div>
+        );
+    }
+
+    if (error || !d) {
+        return (
+            <div className="rounded-3xl bg-white/5 p-6 ring-1 ring-white/10">
+                <div className="text-sm font-semibold">Could not load details</div>
+                <div
+                    className="mt-2 rounded-2xl border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-100">
+                    {error ?? "Unknown error."}
+                </div>
+
+                <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+                    <button
+                        type="button"
+                        onClick={() => window.history.back()}
+                        className="rounded-2xl bg-white/5 px-4 py-2.5 text-sm font-semibold text-white/85 ring-1 ring-white/10 hover:bg-white/10"
+                    >
+                        ← Back
+                    </button>
+
+                    {id && (
+                        <button
+                            type="button"
+                            onClick={() => {
+                                // simple refresh without reloading app
+                                setBusy(true);
+                                setError(null);
+                                fetchLinkDetails(id)
+                                    .then(setData)
+                                    .catch((e) => {
+                                        const msg =
+                                            e?.response?.data && typeof e.response.data === "string"
+                                                ? e.response.data
+                                                : e?.response?.data?.message || e?.message || "Failed to load link details.";
+                                        setError(msg);
+                                    })
+                                    .finally(() => setBusy(false));
+                            }}
+                            className="rounded-2xl bg-white px-4 py-2.5 text-sm font-semibold text-[#070A12] hover:bg-white/90"
+                        >
+                            Retry
+                        </button>
+                    )}
+                </div>
+            </div>
+        );
+    }
+
+    // ---- MAIN ----
     return (
         <>
             {/* background */}
             <div className="pointer-events-none fixed inset-0 overflow-hidden">
-                <div className="absolute left-1/2 top-[-240px] h-[520px] w-[720px] -translate-x-1/2 rounded-full bg-gradient-to-r from-indigo-500/20 via-fuchsia-500/20 to-cyan-400/20 blur-3xl sm:h-[620px] sm:w-[920px] 2xl:h-[720px] 2xl:w-[1100px]" />
-                <div className="absolute bottom-[-240px] right-[-240px] h-[420px] w-[420px] rounded-full bg-gradient-to-r from-cyan-400/10 to-indigo-500/10 blur-3xl sm:h-[520px] sm:w-[520px]" />
-                <div className="absolute top-[35%] left-[-220px] h-[360px] w-[360px] rounded-full bg-gradient-to-r from-fuchsia-500/10 to-indigo-500/10 blur-3xl" />
+                <div
+                    className="absolute left-1/2 top-[-240px] h-[520px] w-[720px] -translate-x-1/2 rounded-full bg-gradient-to-r from-indigo-500/20 via-fuchsia-500/20 to-cyan-400/20 blur-3xl sm:h-[620px] sm:w-[920px] 2xl:h-[720px] 2xl:w-[1100px]" />
+                <div
+                    className="absolute bottom-[-240px] right-[-240px] h-[420px] w-[420px] rounded-full bg-gradient-to-r from-cyan-400/10 to-indigo-500/10 blur-3xl sm:h-[520px] sm:w-[520px]" />
+                <div
+                    className="absolute top-[35%] left-[-220px] h-[360px] w-[360px] rounded-full bg-gradient-to-r from-fuchsia-500/10 to-indigo-500/10 blur-3xl" />
             </div>
 
-            <div className="relative mx-auto w-full max-w-5xl px-4 py-10 sm:px-6 sm:py-14 lg:max-w-6xl lg:px-8 2xl:max-w-7xl 2xl:px-10">
+            <div
+                className="relative mx-auto w-full max-w-5xl px-4 py-10 sm:px-6 sm:py-14 lg:max-w-6xl lg:px-8 2xl:max-w-7xl 2xl:px-10">
                 {/* header */}
                 <header className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                     <div className="min-w-0">
                         <div className="text-xs font-semibold tracking-wider text-white/60 uppercase">Link details</div>
                         <h1 className="mt-2 text-2xl font-semibold tracking-tight sm:text-3xl">{d.alias}</h1>
                         <p className="mt-2 text-sm text-white/65">
-                            Created {formatDate(d.createdAt)} • {d.totalClicks} total clicks • {d.uniqueReferrers} referrers
+                            Created {formatDate(d.createdAt)} • {d.totalClicks} total clicks
+                            • {d.uniqueReferrers} referrers
                         </p>
                     </div>
 
@@ -247,8 +308,11 @@ export default function LinkDetailsPage() {
                     <div className="rounded-3xl bg-white/5 p-6 ring-1 ring-white/10 backdrop-blur">
                         <div className="flex items-start justify-between gap-3">
                             <div>
-                                <div className="text-xs font-semibold tracking-wider text-white/60 uppercase">QR Code</div>
-                                <div className="mt-1 text-sm text-white/65">{d.qrEnabled ? "Scan to open the short link" : "No QR for this link"}</div>
+                                <div className="text-xs font-semibold tracking-wider text-white/60 uppercase">QR Code
+                                </div>
+                                <div className="mt-1 text-sm text-white/65">
+                                    {d.qrEnabled ? "Scan to open the short link" : "No QR for this link"}
+                                </div>
                             </div>
 
                             <span
@@ -267,7 +331,10 @@ export default function LinkDetailsPage() {
                                     <img src={d.qrUrl} alt="QR Code" className="h-48 w-48" />
                                 </div>
                             ) : (
-                                <div className="rounded-2xl border border-white/10 bg-white/5 p-4 text-sm text-white/65">QR is not available for this link.</div>
+                                <div
+                                    className="rounded-2xl border border-white/10 bg-white/5 p-4 text-sm text-white/65">
+                                    QR is not available for this link.
+                                </div>
                             )}
                         </div>
 
@@ -285,7 +352,8 @@ export default function LinkDetailsPage() {
 
                 {/* tabs */}
                 <section className="mt-8 rounded-3xl bg-white/5 ring-1 ring-white/10 backdrop-blur">
-                    <div className="flex flex-col gap-3 border-b border-white/10 p-4 sm:flex-row sm:items-center sm:justify-between">
+                    <div
+                        className="flex flex-col gap-3 border-b border-white/10 p-4 sm:flex-row sm:items-center sm:justify-between">
                         <div className="inline-flex rounded-2xl bg-white/5 p-1 ring-1 ring-white/10">
                             <TabButton active={tab === "overview"} onClick={() => setTab("overview")}>
                                 Overview
@@ -318,7 +386,9 @@ export default function LinkDetailsPage() {
                                     <div className="flex items-end justify-between gap-3">
                                         <div>
                                             <div className="text-sm font-semibold">Clicks (last 7 days)</div>
-                                            <div className="mt-1 text-sm text-white/60">Click a bar to open Click events filtered by that date.</div>
+                                            <div className="mt-1 text-sm text-white/60">
+                                                Click a bar to open Click events filtered by that date.
+                                            </div>
                                         </div>
                                         <div className="text-sm text-white/60">
                                             Total: <span className="font-semibold text-white/80">{totalLast7}</span>
@@ -364,13 +434,14 @@ export default function LinkDetailsPage() {
                                                         aria-label={`${x.date}: ${x.count} clicks`}
                                                     >
                                                         <div
-                                                            className={clsx(
-                                                                "w-full rounded-xl transition",
-                                                                isSelected ? "bg-white" : "bg-white/70 group-hover:bg-white/90"
-                                                            )}
-                                                            style={{ height: `${h}px`, opacity: x.count === 0 ? 0.25 : 1 }}
+                                                            className={clsx("w-full rounded-xl transition", isSelected ? "bg-white" : "bg-white/70 group-hover:bg-white/90")}
+                                                            style={{
+                                                                height: `${h}px`,
+                                                                opacity: x.count === 0 ? 0.25 : 1
+                                                            }}
                                                         />
-                                                        <div className="text-[11px] font-semibold text-white/50">{dayLabel(x.date)}</div>
+                                                        <div
+                                                            className="text-[11px] font-semibold text-white/50">{dayLabel(x.date)}</div>
                                                     </button>
                                                 );
                                             })}
@@ -378,31 +449,39 @@ export default function LinkDetailsPage() {
 
                                         {selectedDate && (
                                             <div className="mt-4 text-sm text-white/60">
-                                                Selected: <span className="font-semibold text-white/80">{formatDayPretty(selectedDate)}</span> •{" "}
-                                                <span className="font-semibold text-white/80">{selectedDayCount ?? 0}</span> clicks
+                                                Selected: <span
+                                                className="font-semibold text-white/80">{formatDayPretty(selectedDate)}</span> •{" "}
+                                                <span
+                                                    className="font-semibold text-white/80">{selectedDayCount ?? 0}</span> clicks
                                             </div>
                                         )}
                                     </div>
 
                                     <div className="mt-4 grid gap-3 sm:grid-cols-3">
-                                        <Mini title="Best day" value={`${Math.max(...d.clicksLast7Days.map((x) => x.count))} clicks`} />
+                                        <Mini title="Best day"
+                                              value={`${Math.max(...d.clicksLast7Days.map((x) => x.count))} clicks`} />
                                         <Mini title="Average/day" value={`${Math.round(totalLast7 / 7)}`} />
                                         <Mini title="Short URL" value={truncateMiddle(d.shortUrl, 26)} />
                                     </div>
                                 </div>
 
-                                {/* top referers */}
+                                {/* top referrers */}
                                 <div>
                                     <div className="text-sm font-semibold">Top referrers</div>
                                     <div className="mt-4 space-y-2">
                                         {d.topReferrers.length === 0 ? (
-                                            <div className="rounded-2xl border border-white/10 bg-white/5 p-4 text-sm text-white/65">No referrers yet.</div>
+                                            <div
+                                                className="rounded-2xl border border-white/10 bg-white/5 p-4 text-sm text-white/65">No
+                                                referrers yet.</div>
                                         ) : (
                                             d.topReferrers.map((r) => (
-                                                <div key={r.referrer} className="rounded-2xl bg-white/5 p-4 ring-1 ring-white/10">
+                                                <div key={r.referrer}
+                                                     className="rounded-2xl bg-white/5 p-4 ring-1 ring-white/10">
                                                     <div className="flex items-center justify-between gap-3">
-                                                        <div className="text-sm font-semibold text-white/85">{r.referrer}</div>
-                                                        <span className="rounded-full bg-white/5 px-3 py-1 text-xs font-semibold text-white/75 ring-1 ring-white/10">
+                                                        <div
+                                                            className="text-sm font-semibold text-white/85">{r.referrer}</div>
+                                                        <span
+                                                            className="rounded-full bg-white/5 px-3 py-1 text-xs font-semibold text-white/75 ring-1 ring-white/10">
                               {r.count}
                             </span>
                                                     </div>
@@ -414,17 +493,21 @@ export default function LinkDetailsPage() {
                             </div>
                         ) : (
                             <>
-                                {/* events header - MUST SHOW SELECTED DATE INFO */}
+                                {/* events header */}
                                 <div className="mb-4 rounded-2xl bg-white/5 p-4 ring-1 ring-white/10">
                                     <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                                         <div>
-                                            <div className="text-xs font-semibold tracking-wider text-white/60 uppercase">Click events</div>
+                                            <div
+                                                className="text-xs font-semibold tracking-wider text-white/60 uppercase">Click
+                                                events
+                                            </div>
                                             <div className="mt-1 text-sm text-white/80">
                                                 {selectedDate ? (
                                                     <>
-                                                        Showing events for{" "}
-                                                        <span className="font-semibold text-white">{formatDayPretty(selectedDate)}</span>{" "}
-                                                        <span className="text-white/60">({selectedDayCount ?? 0} clicks)</span>
+                                                        Showing events for <span
+                                                        className="font-semibold text-white">{formatDayPretty(selectedDate)}</span>{" "}
+                                                        <span
+                                                            className="text-white/60">({selectedDayCount ?? 0} clicks)</span>
                                                     </>
                                                 ) : (
                                                     <>No date selected. Click a bar in Overview to filter.</>
@@ -445,8 +528,10 @@ export default function LinkDetailsPage() {
                                 </div>
 
                                 <div className="overflow-hidden rounded-2xl ring-1 ring-white/10">
-                                    <div className="border-b border-white/10 bg-white/5 px-4 py-3 text-sm text-white/60">
-                                        Showing <span className="font-semibold text-white/80">{filteredEvents.length}</span> events
+                                    <div
+                                        className="border-b border-white/10 bg-white/5 px-4 py-3 text-sm text-white/60">
+                                        Showing <span
+                                        className="font-semibold text-white/80">{filteredEvents.length}</span> events
                                         {selectedDate ? ` for ${selectedDate}` : ""}.
                                     </div>
 
@@ -470,7 +555,8 @@ export default function LinkDetailsPage() {
 
                                             {filteredEvents.length === 0 && (
                                                 <tr>
-                                                    <td colSpan={3} className="px-4 py-10 text-center text-sm text-white/60">
+                                                    <td colSpan={3}
+                                                        className="px-4 py-10 text-center text-sm text-white/60">
                                                         No events for this date.
                                                     </td>
                                                 </tr>
@@ -479,7 +565,8 @@ export default function LinkDetailsPage() {
                                         </table>
                                     </div>
 
-                                    <div className="border-t border-white/10 bg-white/5 px-4 py-3 text-sm text-white/60">
+                                    <div
+                                        className="border-t border-white/10 bg-white/5 px-4 py-3 text-sm text-white/60">
                                         Tip: select another day from Overview to update this list.
                                     </div>
                                 </div>
@@ -505,7 +592,8 @@ function InfoRow({
         <div className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-center">
             <div className="min-w-0">
                 <div className="text-xs font-semibold tracking-wider text-white/60 uppercase">{label}</div>
-                <div className="mt-2 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white shadow-inner">
+                <div
+                    className="mt-2 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white shadow-inner">
                     <div className="truncate">{value}</div>
                 </div>
             </div>
