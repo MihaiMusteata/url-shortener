@@ -4,6 +4,7 @@ using UrlShortener.BusinessLogic.Services.JwtToken;
 using UrlShortener.BusinessLogic.Services.Password;
 using UrlShortener.BusinessLogic.Wrappers;
 using UrlShortener.DataAccess.Entities;
+using UrlShortener.DataAccess.Repositories.Subscription;
 using UrlShortener.DataAccess.Repositories.User;
 
 namespace UrlShortener.BusinessLogic.Services.Auth;

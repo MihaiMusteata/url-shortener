@@ -18,15 +18,24 @@ public static class PlanMapper
         };
     }
 
-    public static PlanDbTable ToEntity(this PlanDto plan)
+    public static PlanDbTable ToEntity(this PlanDto plan, PlanDbTable? existing = null)
     {
-        return new PlanDbTable
-        {
-            Name = plan.Name,
-            PriceMonthly = plan.PriceMonthly,
-            MaxLinksPerMonth = plan.MaxLinksPerMonth,
-            CustomAliasEnabled = plan.CustomAliasEnabled,
-            QrEnabled = plan.QrEnabled
-        };
+        if (existing == null)
+            return new PlanDbTable
+            {
+                Name = plan.Name,
+                PriceMonthly = plan.PriceMonthly,
+                MaxLinksPerMonth = plan.MaxLinksPerMonth,
+                CustomAliasEnabled = plan.CustomAliasEnabled,
+                QrEnabled = plan.QrEnabled
+            };
+
+        existing.Name = plan.Name;
+        existing.PriceMonthly = plan.PriceMonthly;
+        existing.MaxLinksPerMonth = plan.MaxLinksPerMonth;
+        existing.CustomAliasEnabled = plan.CustomAliasEnabled;
+        existing.QrEnabled = plan.QrEnabled;
+        return existing;
+
     }
 }

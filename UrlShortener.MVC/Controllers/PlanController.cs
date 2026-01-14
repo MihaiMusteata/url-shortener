@@ -73,17 +73,7 @@ public class PlanController : Controller
             return RedirectToAction(nameof(Index));
         }
 
-        var vm = new PlanDto
-        {
-            Id = res.Data.Id,
-            Name = res.Data.Name,
-            PriceMonthly = res.Data.PriceMonthly,
-            MaxLinksPerMonth = res.Data.MaxLinksPerMonth,
-            CustomAliasEnabled = res.Data.CustomAliasEnabled,
-            QrEnabled = res.Data.QrEnabled
-        };
-
-        return View(vm);
+        return View(res.Data);
     }
 
     [HttpPost]

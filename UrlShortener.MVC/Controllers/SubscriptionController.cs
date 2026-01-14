@@ -23,7 +23,7 @@ public class SubscriptionController : Controller
             return View(new List<SubscriptionDto>());
         }
 
-        return View(res.Data ?? new List<SubscriptionDto>());
+        return View(res.Data ?? new List<SubscriptionDetailsDto>());
     }
 
     [HttpGet]
@@ -76,7 +76,7 @@ public class SubscriptionController : Controller
         var vm = new SubscriptionDto
         {
             Id = res.Data.Id,
-            UserId = res.Data.UserId,
+            UserId = res.Data.User.Id,
             PlanId = res.Data.PlanId,
             Active = res.Data.Active
         };

@@ -25,23 +25,23 @@ public class SubscriptionService : ISubscriptionService
         _plans = plans;
     }
 
-    public async Task<ServiceResponse<List<SubscriptionDto>>> GetAllAsync(CancellationToken ct = default)
+    public async Task<ServiceResponse<List<SubscriptionDetailsDto>>> GetAllAsync(CancellationToken ct = default)
     {
         var items = await _subs.GetAllAsync(ct);
-        var dtos = items.Select(x => x.ToDto()).ToList();
-        return ServiceResponse<List<SubscriptionDto>>.Ok(dtos);
+        var dtos = items.Select(x => x.ToDetailsDto()).ToList();
+        return ServiceResponse<List<SubscriptionDetailsDto>>.Ok(dtos);
     }
 
-    public async Task<ServiceResponse<SubscriptionDto>> GetByIdAsync(Guid id, CancellationToken ct = default)
+    public async Task<ServiceResponse<SubscriptionDetailsDto>> GetByIdAsync(Guid id, CancellationToken ct = default)
     {
         if (id == Guid.Empty)
-            return ServiceResponse<SubscriptionDto>.Fail("Invalid id.");
+            return ServiceResponse<SubscriptionDetailsDto>.Fail("Invalid id.");
 
         var entity = await _subs.GetByIdAsync(id, ct);
         if (entity is null)
-            return ServiceResponse<SubscriptionDto>.Fail("Subscription not found.");
+            return ServiceResponse<SubscriptionDetailsDto>.Fail("Subscription not found.");
 
-        return ServiceResponse<SubscriptionDto>.Ok(entity.ToDto());
+        return ServiceResponse<SubscriptionDetailsDto>.Ok(entity.ToDetailsDto());
     }
 
     public async Task<ServiceResponse<List<SubscriptionDto>>> GetByUserIdAsync(Guid userId,

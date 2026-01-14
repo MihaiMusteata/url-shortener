@@ -58,7 +58,7 @@ public class PlanService : IPlanService
 
         try
         {
-            _plansRepository.Update(planDto.ToEntity());
+            _plansRepository.Update(planDto.ToEntity(entity));
             await _plansRepository.SaveChangesAsync(ct);
         }
         catch (Exception ex)

@@ -19,11 +19,15 @@ public class SubscriptionRepository : ISubscriptionRepository
 
     public Task<List<SubscriptionDbTable>> GetAllAsync(CancellationToken ct = default)
         => _db.Subscriptions
+            .Include(x => x.Plan)
+            .Include(x => x.User)
             .AsNoTracking()
             .ToListAsync(ct);
 
     public Task<SubscriptionDbTable?> GetByIdAsync(Guid id, CancellationToken ct = default)
         => _db.Subscriptions
+            .Include(x => x.Plan)
+            .Include(x => x.User)
             .FirstOrDefaultAsync(x => x.Id == id, ct);
 
     public Task<List<SubscriptionDbTable>> GetByUserIdAsync(Guid userId, CancellationToken ct = default)
