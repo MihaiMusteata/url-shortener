@@ -1,0 +1,44 @@
+@{
+    ViewData["Title"] = "Access denied";
+}
+
+<div>
+    <div class="mx-auto max-w-xl px-4 sm:px-6 lg:px-8">
+        <div class="rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
+
+            <div class="flex items-center gap-4">
+                <div class="h-12 w-12 rounded-2xl bg-gradient-to-br from-rose-600 to-rose-500 text-white flex items-center justify-center shadow-sm">
+                    <span class="text-lg font-semibold">403</span>
+                </div>
+
+                <div>
+                    <h1 class="text-2xl font-semibold tracking-tight text-slate-900">
+                        Access denied
+                    </h1>
+                    <p class="mt-1 text-sm text-slate-500">
+                        You do not have permission to access this resource.
+                    </p>
+                </div>
+            </div>
+
+            <div class="mt-6 text-sm text-slate-600">
+                This area is restricted based on role or permissions.
+            </div>
+
+            <!-- Actions -->
+            <div class="mt-8 flex flex-col gap-2 sm:flex-row">
+
+                <form asp-controller="Account"
+                      asp-action="Logout"
+                      method="post">
+                    @Html.AntiForgeryToken()
+                    <button type="submit"
+                            class="inline-flex items-center justify-center rounded-2xl bg-white px-4 py-2.5 text-sm font-semibold text-rose-700 ring-1 ring-inset ring-rose-200 hover:bg-rose-50 focus:outline-none focus:ring-2 focus:ring-rose-400 focus:ring-offset-2">
+                        Logout
+                    </button>
+                </form>
+            </div>
+
+        </div>
+    </div>
+</div>

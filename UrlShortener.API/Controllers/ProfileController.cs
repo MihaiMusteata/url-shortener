@@ -8,7 +8,7 @@ namespace UrlShortener.API.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-[Authorize]
+[Authorize(Roles = "user")]
 public class ProfileController : ControllerBase
 {
     private readonly IProfileService _profile;

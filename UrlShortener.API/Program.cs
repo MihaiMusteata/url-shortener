@@ -14,8 +14,6 @@ try
 {
     var builder = WebApplication.CreateBuilder(args);
 
-    // 🔹 Înlocuiește provider-ele default cu NLog
-    builder.Logging.ClearProviders();
     builder.Host.UseNLog();
 
     builder.Services.AddControllers();

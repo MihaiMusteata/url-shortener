@@ -103,3 +103,13 @@ seed.sql
 **/Properties/launchSettings.json
 
 /secrets
+
+# Docker images for server
+api.tar
+client.tar
+mvc.tar
+postgres_data.tar.gz
+images-amd64.tar.gz
+
+# Database init for server
+init.sql

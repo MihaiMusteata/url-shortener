@@ -2,7 +2,7 @@ import axios from "axios";
 import { getToken, clearAuthStorage } from "./storage";
 
 export const api = axios.create({
-    baseURL: import.meta.env.VITE_API_URL ?? "http://localhost:5093/api",
+    baseURL: "https://client.i9t24.online/api",
     headers: {
         "Content-Type": "application/json",
     },

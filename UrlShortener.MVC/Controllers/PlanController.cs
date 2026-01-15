@@ -1,9 +1,11 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using UrlShortener.BusinessLogic.DTOs;
 using UrlShortener.BusinessLogic.Services.Plan;
 
 namespace UrlShortener.MVC.Controllers;
 
+[Authorize(Roles = "admin")]
 public class PlanController : Controller
 {
     private readonly IPlanService _planService;

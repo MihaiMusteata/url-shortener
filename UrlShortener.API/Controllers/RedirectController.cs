@@ -7,7 +7,7 @@ namespace UrlShortener.API.Controllers;
 
 [ApiController]
 [AllowAnonymous]
-[Route("")]
+[Route("r")]
 public class RedirectController : ControllerBase
 {
     private readonly IShortLinkService _shortLinks;

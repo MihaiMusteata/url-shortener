@@ -1,0 +1,125 @@
+@model UrlShortener.MVC.Models.RegisterViewModel
+
+@{
+    ViewData["Title"] = "Register";
+}
+
+<div class="min-h-screen bg-gradient-to-b from-slate-50 to-white">
+    <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-10">
+        <div class="flex flex-col items-center justify-center">
+            <div class="w-full max-w-md">
+                <div class="flex items-center gap-3">
+                    <a asp-controller="Home" asp-action="Index"
+                       class="inline-flex items-center gap-2 rounded-2xl bg-white px-3 py-2 text-sm font-semibold text-slate-700 ring-1 ring-inset ring-slate-200 hover:bg-slate-50">
+                        <span class="text-base leading-none">←</span>
+                        Back
+                    </a>
+                    <span class="text-sm text-slate-400">/</span>
+                    <span class="text-sm font-semibold text-slate-600">Account</span>
+                </div>
+
+                <div class="mt-5 rounded-3xl border border-slate-200 bg-white shadow-sm">
+                    <div class="border-b border-slate-200 px-6 py-5">
+                        <div class="flex items-center gap-4">
+                            <div class="h-12 w-12 rounded-2xl bg-gradient-to-br from-slate-900 to-slate-700 text-white flex items-center justify-center shadow-sm">
+                                <span class="text-lg font-semibold">U</span>
+                            </div>
+                            <div class="min-w-0">
+                                <h1 class="truncate text-2xl font-semibold tracking-tight text-slate-900">Create account</h1>
+                                <p class="mt-1 text-sm text-slate-500">Start shortening links in minutes.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="px-6 py-6">
+                        <form asp-action="Register" method="post" class="space-y-4">
+                            @* important dacă vrei să te întorci unde ai venit după register *@
+                            <input asp-for="ReturnUrl" type="hidden" />
+
+                            @if (!ViewData.ModelState.IsValid)
+                            {
+                                <div asp-validation-summary="All"
+                                     class="rounded-2xl bg-rose-50 px-4 py-3 text-sm text-rose-700 ring-1 ring-inset ring-rose-200">
+                                </div>
+                            }
+
+                            <div>
+                                <label asp-for="Email" class="block text-sm font-semibold text-slate-900"></label>
+                                <div class="mt-2">
+                                    <input asp-for="Email" autocomplete="email"
+                                           class="block w-full rounded-2xl border-0 bg-white px-4 py-2.5 text-slate-900 ring-1 ring-inset ring-slate-200 placeholder:text-slate-400 focus:ring-2 focus:ring-slate-900" />
+                                </div>
+                                <span asp-validation-for="Email" class="mt-2 block text-sm text-rose-700"></span>
+                            </div>
+
+                            <div>
+                                <label asp-for="Username" class="block text-sm font-semibold text-slate-900"></label>
+                                <div class="mt-2">
+                                    <input asp-for="Username" autocomplete="username"
+                                           class="block w-full rounded-2xl border-0 bg-white px-4 py-2.5 text-slate-900 ring-1 ring-inset ring-slate-200 placeholder:text-slate-400 focus:ring-2 focus:ring-slate-900" />
+                                </div>
+                                <span asp-validation-for="Username" class="mt-2 block text-sm text-rose-700"></span>
+                            </div>
+
+                            <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                                <div>
+                                    <label asp-for="FirstName" class="block text-sm font-semibold text-slate-900"></label>
+                                    <div class="mt-2">
+                                        <input asp-for="FirstName" autocomplete="given-name"
+                                               class="block w-full rounded-2xl border-0 bg-white px-4 py-2.5 text-slate-900 ring-1 ring-inset ring-slate-200 placeholder:text-slate-400 focus:ring-2 focus:ring-slate-900" />
+                                    </div>
+                                    <span asp-validation-for="FirstName" class="mt-2 block text-sm text-rose-700"></span>
+                                </div>
+
+                                <div>
+                                    <label asp-for="LastName" class="block text-sm font-semibold text-slate-900"></label>
+                                    <div class="mt-2">
+                                        <input asp-for="LastName" autocomplete="family-name"
+                                               class="block w-full rounded-2xl border-0 bg-white px-4 py-2.5 text-slate-900 ring-1 ring-inset ring-slate-200 placeholder:text-slate-400 focus:ring-2 focus:ring-slate-900" />
+                                    </div>
+                                    <span asp-validation-for="LastName" class="mt-2 block text-sm text-rose-700"></span>
+                                </div>
+                            </div>
+
+                            <div>
+                                <label asp-for="Password" class="block text-sm font-semibold text-slate-900"></label>
+                                <div class="mt-2">
+                                    <input asp-for="Password" type="password" autocomplete="new-password"
+                                           class="block w-full rounded-2xl border-0 bg-white px-4 py-2.5 text-slate-900 ring-1 ring-inset ring-slate-200 placeholder:text-slate-400 focus:ring-2 focus:ring-slate-900" />
+                                </div>
+                                <span asp-validation-for="Password" class="mt-2 block text-sm text-rose-700"></span>
+                            </div>
+
+                            <div>
+                                <label asp-for="ConfirmPassword" class="block text-sm font-semibold text-slate-900"></label>
+                                <div class="mt-2">
+                                    <input asp-for="ConfirmPassword" type="password" autocomplete="new-password"
+                                           class="block w-full rounded-2xl border-0 bg-white px-4 py-2.5 text-slate-900 ring-1 ring-inset ring-slate-200 placeholder:text-slate-400 focus:ring-2 focus:ring-slate-900" />
+                                </div>
+                                <span asp-validation-for="ConfirmPassword" class="mt-2 block text-sm text-rose-700"></span>
+                            </div>
+
+                            <button type="submit"
+                                    class="inline-flex w-full items-center justify-center rounded-2xl bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white shadow-sm shadow-slate-900/10 hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-900 focus:ring-offset-2">
+                                Create account
+                            </button>
+
+                            <div class="pt-2 text-center text-sm text-slate-600">
+                                Already have an account?
+                                <a asp-action="Login" class="font-semibold text-slate-900 hover:underline">Sign in</a>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+
+                <p class="mt-6 text-center text-xs text-slate-500">
+                    Use a strong password for better security.
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

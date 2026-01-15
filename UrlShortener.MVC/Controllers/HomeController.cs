@@ -1,9 +1,11 @@
 using System.Diagnostics;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using UrlShortener.MVC.Models;
 
 namespace UrlShortener.MVC.Controllers;
 
+[Authorize(Roles = "admin")]
 public class HomeController : Controller
 {
     public IActionResult Index()

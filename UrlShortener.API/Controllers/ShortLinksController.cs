@@ -8,7 +8,7 @@ namespace UrlShortener.API.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-[Authorize]
+[Authorize(Roles = "user")]
 public class ShortLinksController : ControllerBase
 {
     private readonly IShortLinkService _shortLinks;

@@ -3,32 +3,61 @@ services:
     image: postgres:16
     container_name: postgres-db
     environment:
-      POSTGRES_USER: user
-      POSTGRES_PASSWORD: password
+      # Test credentials
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
       POSTGRES_DB: urlshortener
-    ports:
-      - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-    restart: unless-stopped
-
-  pgadmin:
-    image: dpage/pgadmin4:latest
-    container_name: pgadmin
-    environment:
-      PGADMIN_DEFAULT_EMAIL: admin@local.com
-      PGADMIN_DEFAULT_PASSWORD: admin123
-      PGADMIN_CONFIG_SERVER_MODE: "False"
     ports:
-      - "5050:80"
-    volumes:
-      - pgadmin_data:/var/lib/pgadmin
+      - "5432:5432"
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres -d urlshortener" ]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  urlshortener-api:
+    container_name: urlshortener-api
+    build:
+      context: .
+      dockerfile: UrlShortener.API/Dockerfile
+    environment:
+      ASPNETCORE_URLS: http://+:8080
+      ConnectionStrings__Default: Host=postgres;Port=5432;Database=urlshortener;Username=postgres;Password=postgres
+      ASPNETCORE_ENVIRONMENT: Production
+    ports:
+      - "8080:8080"
     depends_on:
-      - postgres
-    restart: unless-stopped
+      postgres:
+        condition: service_healthy
+
+  urlshortener-mvc:
+    container_name: urlshortener-mvc
+    build:
+      context: .
+      dockerfile: UrlShortener.MVC/Dockerfile
+    environment:
+      ASPNETCORE_URLS: http://+:8081
+      ASPNETCORE_ENVIRONMENT: Production
+      ConnectionStrings__Default: Host=postgres;Port=5432;Database=urlshortener;Username=postgres;Password=postgres
+      Api__BaseUrl: http://urlshortener-api:8080
+    ports:
+      - "8081:8081"
+    depends_on:
+      - urlshortener-api
+
+  urlshortener-client:
+    container_name: urlshortener-client
+    build:
+      context: ./UrlShortener.API/client
+      dockerfile: Dockerfile
+    ports:
+      - "5173:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - urlshortener-api
 
 volumes:
   postgres_data:
-  pgadmin_data:
-  
-  
